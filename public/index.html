@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BIXI Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+
+  <div id="controls">
+    <div style="font-weight:bold;margin-bottom:10px;">
+      <span class="status-dot"></span> BIXI Tracker
+    </div>
+
+    <label>📅 Date
+      <input type="date" id="datePicker" />
+    </label>
+    <hr>
+
+    <label>
+      ⏰ Trajet fini à : <span id="timeLabel">12:00</span>
+      <input type="range" id="timeSlider" min="0" max="1439" value="720" />
+    </label>
+
+    <label>
+      ⏳ Fenêtre ±
+      <input type="number" id="timeWindow" value="5" min="1" max="120"
+             style="width:60px;display:inline;" /> min
+    </label>
+
+    <br><br>
+
+    <label>
+      <input type="checkbox" id="showAllTrips" />
+      Afficher tout le réseau (journée)
+    </label>
+
+    <button id="togglePlay" style="width:100%;margin-top:10px;">▶️ Play Timeline</button>
+    <hr>
+
+    <button id="btnNearby">📍 Arrivées à la station proche</button>
+    <div id="nearbyResults" style="font-size:12px;margin-bottom:10px;"></div>
+
+    <label>🔍 Recherche ID Vélo
+      <input type="text" id="bikeSearch" placeholder="ex: E12345" />
+    </label>
+
+    <div class="btn-row">
+      <button id="btnSearch">Chercher</button>
+      <button id="btnReset">🔄 Reset</button>
+    </div>
+
+    <div id="bikeResults"></div>
+  </div>
+
+  <div id="liveStats">
+    ⚡ <span id="statCount">0</span> trajets |
+    📈 <span id="statDist">0</span> km |
+    👥 <span id="groupCount">0</span> groupes
+  </div>
+
+  <div id="alertBox"></div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

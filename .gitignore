@@ -1,0 +1,21 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# Database (données locales, ne pas versionner)
+*.db
+*.db-shm
+*.db-wal
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
