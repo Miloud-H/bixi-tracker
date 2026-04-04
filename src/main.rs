@@ -15,7 +15,6 @@ async fn main() {
     let pool = db::init_pool("bixi_data.db").expect("Failed to create DB pool");
     db::init_schema(&pool).expect("Failed to initialize DB schema");
 
-    // Spawn tracker in background, give it its own pool handle
     let tracker_pool = pool.clone();
     tokio::spawn(async move {
         tracker::run(tracker_pool).await;
