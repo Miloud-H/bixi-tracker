@@ -42,7 +42,6 @@ class App {
 
     document.addEventListener('DOMContentLoaded', (event) => {
       const now = new Date();
-
       this.timeSlider.value = (now.getHours() * 60) + now.getMinutes();
       this.timeSlider.dispatchEvent(new Event('input'));
     });
