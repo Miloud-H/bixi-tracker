@@ -76,9 +76,9 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "public/**"
-          target: "/opt/bixi-tracker/public"
-          strip_components: 1
+          source: "public/"
+          target: "/opt/bixi-tracker"
+          strip_components: 0
           overwrite: true
 
       - name: Restart service
@@ -93,5 +93,9 @@ jobs:
             if [ -f /opt/bixi-tracker/temp/bixi-tracker ]; then
               mv /opt/bixi-tracker/temp/bixi-tracker /opt/bixi-tracker/bixi-tracker
               chmod +x /opt/bixi-tracker/bixi-tracker
-              sudo /usr/bin/systemctl restart bixi-tracker
+              sudo systemctl restart bixi-tracker
+              sudo systemctl is-active --quiet bixi-tracker && echo "✅ OK" || echo "❌ Failed"
+            else
+              echo "❌ Binary not found in temp/"
+              exit 1
             fi

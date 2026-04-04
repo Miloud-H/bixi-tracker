@@ -139,6 +139,7 @@ fn save_positions(pool: &DbPool, positions: &HashMap<String, BikeState>) {
 }
 
 
+/// Returns true if the displacement looks like a real trip
 /// (moved more than 15 m and speed under 50 km/h).
 fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     if distance_m <= 15.0 || duration_secs <= 0.0 {
