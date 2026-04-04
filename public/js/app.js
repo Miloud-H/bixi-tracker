@@ -40,6 +40,13 @@ class App {
     document.getElementById("btnReset").addEventListener("click", () => this.reset());
     document.getElementById("btnNearby").addEventListener("click", () => this.checkNearbyArrivals());
 
+    document.addEventListener('DOMContentLoaded', (event) => {
+      const now = new Date();
+
+      this.timeSlider.value = (now.getHours() * 60) + now.getMinutes();
+      this.timeSlider.dispatchEvent(new Event('input'));
+    });
+
     this.map.on("popupclose", () => this.resetStyles());
   }
 
