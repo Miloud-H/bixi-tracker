@@ -161,23 +161,15 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
             Ok(res) => {
                 if let Ok(gbfs) = res.json::<GbfsResponse>().await {
                     let now = Utc::now();
-                    let current_ids: std::collections::HashSet<String> = gbfs.data.bikes.iter()
-                        .map(|b| b.bike_id.clone())
+                    let current_ids: std::collections::HashSet<&str> = gbfs.data.bikes.iter()
+                        .map(|b| b.bike_id.as_str())
                         .collect();
 
-                    {
-                        let mut flight = in_flight.write().unwrap();
-                        for id in positions.keys() {
-                            if !current_ids.contains(id) {
-                                flight.entry(id.clone()).or_insert(now);
-                            }
-                        }
-                    }
-
                     let mut detected: Vec<(String, String, f64, f64, f64, f64, f64)> = Vec::new();
+                    let mut returned: Vec<String> = Vec::new();
 
-                    for bike in gbfs.data.bikes {
-                        let (lat, lon) = normalize_coords(&bike);
+                    for bike in &gbfs.data.bikes {
+                        let (lat, lon) = normalize_coords(bike);
 
                         if !is_valid_position(lat, lon) {
                             continue;
@@ -197,7 +189,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                                     lat, lon,
                                     distance,
                                 ));
-                                in_flight.write().unwrap().remove(&bike.bike_id);
+                                returned.push(bike.bike_id.clone());
                             }
                         }
 
@@ -207,7 +199,18 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                         );
                     }
 
-                    in_flight.write().unwrap().retain(|_, start| (now - *start).num_minutes() < 120);
+                    {
+                        let mut flight = in_flight.write().unwrap();
+                        for id in positions.keys() {
+                            if !current_ids.contains(id.as_str()) {
+                                flight.entry(id.clone()).or_insert(now);
+                            }
+                        }
+                        for id in &returned {
+                            flight.remove(id);
+                        }
+                        flight.retain(|_, start| (now - *start).num_minutes() < 120);
+                    }
 
                     let new_trips = insert_trips(&pool, &detected, &now.to_rfc3339());
 
