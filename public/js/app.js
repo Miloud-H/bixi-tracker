@@ -1,37 +1,43 @@
 import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup } from "./map.js";
-import { fetchTrips, filterByTimeWindow } from "./trips.js";
+import { fetchTrips, fetchActive, filterByTimeWindow, filterByDistance } from "./trips.js";
 import { findNearestStation, haversineDistance } from "./geo.js";
 import {
   initTheme, toggleTheme,
-  showAlert, updateStats, updateSliderLabel, updateTopStations, drawHistogram,
+  showAlert, updateStats, updateSliderLabel, updateTopStations,
+  updateDistLabel, updateActiveCount,
+  drawHistogram, drawDailyChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
-  TimelinePlayer
+  TimelinePlayer,
 } from "./ui.js";
 
-const GBFS_STATIONS_URL = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
+const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
 const RELOAD_INTERVAL_MS = 30_000;
+const ACTIVE_INTERVAL_MS = 35_000; // légèrement décalé du tracker
 
 class App {
   constructor() {
-    this.map = initMap();
-    this.stations = [];
-    this.allTrips = [];
+    this.map        = initMap();
+    this.stations   = [];
+    this.allTrips   = [];
     this.tripsLayer = null;
-    this.bikeLayer = null;
+    this.bikeLayer  = null;
     this.focusLayer = null;
     this.lastTripCount = 0;
-    this.theme = initTheme();
+    this.theme      = initTheme();
+    this.chartOpen  = false;
 
-    this.datePicker    = document.getElementById("datePicker");
-    this.timeSlider    = document.getElementById("timeSlider");
-    this.timeWindow    = document.getElementById("timeWindow");
-    this.showAllCheck  = document.getElementById("showAllTrips");
-    this.histCanvas    = document.getElementById("histogramCanvas");
+    this.datePicker   = document.getElementById("datePicker");
+    this.timeSlider   = document.getElementById("timeSlider");
+    this.timeWindow   = document.getElementById("timeWindow");
+    this.showAllCheck = document.getElementById("showAllTrips");
+    this.distSlider   = document.getElementById("distSlider");
+    this.histCanvas   = document.getElementById("histogramCanvas");
 
     this.player = new TimelinePlayer("timeSlider", () => this.render());
 
-    this.datePicker.value = new Date().toISOString().split("T")[0];
     const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    this.datePicker.value = new Date(now.getTime() - offset).toISOString().split("T")[0];
     this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
 
     this.bindEvents();
@@ -39,23 +45,37 @@ class App {
 
   bindEvents() {
     let debounce;
-    this.timeSlider.addEventListener("input", () => {
+    const debouncedRender = () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => this.render(), 10);
+    };
+
+    this.timeSlider.addEventListener("input", debouncedRender);
+    this.timeWindow.addEventListener("input", debouncedRender);
+    this.distSlider.addEventListener("input", () => {
+      updateDistLabel(parseInt(this.distSlider.value));
+      debouncedRender();
     });
+
     this.datePicker.addEventListener("change", () => this.load());
     this.showAllCheck.addEventListener("change", () => this.render());
-    this.timeWindow.addEventListener("input", () => this.render());
 
     document.getElementById("togglePlay").addEventListener("click", () => this.player.toggle());
     document.getElementById("btnSearch").addEventListener("click", () => this.searchBike());
     document.getElementById("btnReset").addEventListener("click", () => this.reset());
     document.getElementById("btnNearby").addEventListener("click", () => this.checkNearbyArrivals());
 
+    document.getElementById("btnChart").addEventListener("click", () => {
+      this.chartOpen = !this.chartOpen;
+      const panel = document.getElementById("chartPanel");
+      panel.classList.toggle("open", this.chartOpen);
+      if (this.chartOpen) drawDailyChart(this.allTrips);
+    });
+
     document.getElementById("themeToggle").addEventListener("click", () => {
       this.theme = toggleTheme(this.theme);
-      // Redraw histogram avec les bonnes couleurs
       drawHistogram(this.histCanvas, this.allTrips);
+      if (this.chartOpen) drawDailyChart(this.allTrips);
     });
 
     this.map.on("popupclose", () => this.resetStyles());
@@ -66,7 +86,15 @@ class App {
     this.stations = json.data.stations;
     bindClickPopup(this.map, this.allTrips, this.stations);
     await this.load();
-    setInterval(() => this.load(), RELOAD_INTERVAL_MS);
+    await this.refreshActive();
+
+    setInterval(() => this.load(),          RELOAD_INTERVAL_MS);
+    setInterval(() => this.refreshActive(), ACTIVE_INTERVAL_MS);
+  }
+
+  async refreshActive() {
+    const data = await fetchActive();
+    updateActiveCount(data ? data.active_count : null);
   }
 
   async load() {
@@ -78,7 +106,9 @@ class App {
       }
       this.lastTripCount = trips.length;
       this.allTrips = trips;
+
       drawHistogram(this.histCanvas, trips);
+      if (this.chartOpen) drawDailyChart(trips);
       this.render();
     } catch (e) {
       console.error("Failed to load trips:", e);
@@ -89,21 +119,24 @@ class App {
     const sliderVal = parseInt(this.timeSlider.value);
     const windowMin = parseInt(this.timeWindow.value) || 5;
     const showAll   = this.showAllCheck.checked;
+    const minDist   = parseInt(this.distSlider.value) || 0;
 
     updateSliderLabel(sliderVal);
 
     if (this.tripsLayer) this.map.removeLayer(this.tripsLayer);
 
-    const visible = showAll
+    let visible = showAll
       ? this.allTrips
       : filterByTimeWindow(this.allTrips, sliderVal, windowMin);
+
+    visible = filterByDistance(visible, minDist);
 
     this.tripsLayer = renderTrips(this.map, visible, this.stations);
     updateStats(visible, this.allTrips, this.datePicker.value);
     updateTopStations(visible, this.stations);
   }
 
-  // --- Public actions (called from popup HTML via window.app) ---
+  // --- Public (popup onclick via window.app) ---
 
   searchBike(id) {
     const input = document.getElementById("bikeSearch");
@@ -113,14 +146,13 @@ class App {
 
     if (this.bikeLayer) this.map.removeLayer(this.bikeLayer);
     this.bikeLayer = window.L.layerGroup().addTo(this.map);
-
     renderBikePanel(trips, this.stations, "window.app.focusTrip");
     if (trips.length === 0) return;
 
     const bounds = [];
     trips.forEach((t) => {
       window.L.polyline([[t.start_lat, t.start_lon], [t.end_lat, t.end_lon]], {
-        color: "var(--accent-red, #e74c3c)", weight: 4, dashArray: "5, 10",
+        color: "#e74c3c", weight: 4, dashArray: "5, 10",
       }).addTo(this.bikeLayer);
       bounds.push([t.start_lat, t.start_lon], [t.end_lat, t.end_lon]);
     });
@@ -150,6 +182,8 @@ class App {
 
   reset() {
     document.getElementById("bikeSearch").value = "";
+    this.distSlider.value = 0;
+    updateDistLabel(0);
     this.resetStyles();
     this.map.flyTo([45.5017, -73.5673], 13);
     this.render();
@@ -158,14 +192,11 @@ class App {
   checkNearbyArrivals() {
     const div = document.getElementById("nearbyResults");
     div.textContent = "Localisation… 🛰";
-
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude, longitude } }) => {
         const nearest = findNearestStation(this.stations, latitude, longitude, 250);
-        if (!nearest) {
-          div.textContent = "❌ Aucune station à proximité (250 m).";
-          return;
-        }
+        if (!nearest) { div.textContent = "❌ Aucune station à proximité (250 m)."; return; }
+
         const arrivals = this.allTrips
           .filter((t) => haversineDistance(nearest.lat, nearest.lon, t.end_lat, t.end_lon) <= 60)
           .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))

@@ -6,9 +6,14 @@ export async function fetchTrips(date) {
   return res.json();
 }
 
-/**
- * Returns the trip's end time as minutes since midnight (Montreal local time).
- */
+export async function fetchActive() {
+  try {
+    const res = await fetch("/api/active");
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+}
+
 export function tripEndMinutes(trip) {
   const date = new Date(trip.end_time);
   const [h, m] = date
@@ -22,9 +27,6 @@ export function tripEndMinutes(trip) {
   return h * 60 + m;
 }
 
-/**
- * Format an RFC3339 timestamp as HH:MM in Montreal local time.
- */
 export function formatTime(dateStr) {
   if (!dateStr) return "--:--";
   const date = new Date(dateStr);
@@ -42,9 +44,6 @@ export function minutesToHHMM(mins) {
   return `${h}:${m}`;
 }
 
-/**
- * Filter trips to those whose end time falls within [center-window, center+window] minutes.
- */
 export function filterByTimeWindow(trips, centerMinutes, windowMinutes) {
   const from = centerMinutes - windowMinutes;
   const to = centerMinutes + windowMinutes;
@@ -52,4 +51,9 @@ export function filterByTimeWindow(trips, centerMinutes, windowMinutes) {
     const mins = tripEndMinutes(t);
     return mins >= from && mins <= to;
   });
+}
+
+export function filterByDistance(trips, minMeters) {
+  if (!minMeters || minMeters <= 0) return trips;
+  return trips.filter((t) => t.distance >= minMeters);
 }

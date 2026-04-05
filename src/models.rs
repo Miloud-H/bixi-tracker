@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 // --- GBFS API types ---
 
@@ -47,4 +49,12 @@ pub struct Trip {
 #[derive(Deserialize)]
 pub struct TripQuery {
     pub date: Option<String>,
+}
+
+pub type InFlightBikes = Arc<RwLock<HashMap<String, DateTime<Utc>>>>;
+
+#[derive(Serialize)]
+pub struct ActiveStats {
+    pub active_count: usize,
+    pub last_updated: String,
 }

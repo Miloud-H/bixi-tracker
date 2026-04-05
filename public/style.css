@@ -343,7 +343,6 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
 }
 .stat-count { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--text-muted); }
 
-/* ---- Stats bar ---- */
 #liveStats {
   position: fixed;
   bottom: 16px; right: 16px;
@@ -361,7 +360,6 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   transition: background 0.3s;
 }
 
-/* ---- Alerts ---- */
 #alertBox {
   position: fixed;
   top: 16px; right: 16px;
@@ -413,3 +411,56 @@ input[type="checkbox"] {
 #nearbyResults a { color: var(--accent); }
 
 .time { font-weight: 600; color: var(--text-secondary); }
+
+/* =============================================
+   Graphique journalier
+   ============================================= */
+
+#chartPanel {
+  display: none;
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--bg-item);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#chartPanel.open { display: block; }
+
+#chartPanel canvas {
+  width: 100% !important;
+  height: 120px !important;
+}
+
+#btnChart {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.distance-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.distance-filter input[type="range"] {
+  flex: 1;
+  margin-top: 0;
+}
+
+.distance-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#statActive {
+  color: var(--accent);
+  font-weight: 700;
+}

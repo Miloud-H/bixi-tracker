@@ -6,7 +6,7 @@ use geo::{point, Distance, Haversine};
 use rusqlite::params;
 
 use crate::db::DbPool;
-use crate::models::{Bike, BikeState, GbfsResponse};
+use crate::models::{Bike, BikeState, GbfsResponse, InFlightBikes};
 
 const GBFS_URL: &str = "https://gbfs.velobixi.com/gbfs/en/free_bike_status.json";
 const POLL_INTERVAL_SECS: u64 = 30;
@@ -139,7 +139,6 @@ fn save_positions(pool: &DbPool, positions: &HashMap<String, BikeState>) {
 }
 
 
-/// Returns true if the displacement looks like a real trip
 /// (moved more than 15 m and speed under 50 km/h).
 fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     if distance_m <= 15.0 || duration_secs <= 0.0 {
@@ -149,7 +148,7 @@ fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     speed_kmh < 50.0
 }
 
-pub async fn run(pool: DbPool) {
+pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
     let client = reqwest::Client::new();
     let mut positions = load_positions(&pool);
     let mut polls_since_cleanup = 0u32;
@@ -162,6 +161,19 @@ pub async fn run(pool: DbPool) {
             Ok(res) => {
                 if let Ok(gbfs) = res.json::<GbfsResponse>().await {
                     let now = Utc::now();
+                    let current_ids: std::collections::HashSet<String> = gbfs.data.bikes.iter()
+                        .map(|b| b.bike_id.clone())
+                        .collect();
+
+                    {
+                        let mut flight = in_flight.write().unwrap();
+                        for id in positions.keys() {
+                            if !current_ids.contains(id) {
+                                flight.entry(id.clone()).or_insert(now);
+                            }
+                        }
+                    }
+
                     let mut detected: Vec<(String, String, f64, f64, f64, f64, f64)> = Vec::new();
 
                     for bike in gbfs.data.bikes {
@@ -185,6 +197,7 @@ pub async fn run(pool: DbPool) {
                                     lat, lon,
                                     distance,
                                 ));
+                                in_flight.write().unwrap().remove(&bike.bike_id);
                             }
                         }
 
@@ -193,6 +206,8 @@ pub async fn run(pool: DbPool) {
                             BikeState { lat, lon, timestamp: now },
                         );
                     }
+
+                    in_flight.write().unwrap().retain(|_, start| (now - *start).num_minutes() < 120);
 
                     let new_trips = insert_trips(&pool, &detected, &now.to_rfc3339());
 

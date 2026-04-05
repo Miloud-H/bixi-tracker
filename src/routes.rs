@@ -1,13 +1,13 @@
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 use axum::extract::{Query, State};
 use axum::Json;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc, TimeZone};
 use chrono_tz::America::Montreal;
-use chrono::TimeZone;
 
+use crate::models::{ActiveStats, Trip, TripQuery};
 use crate::db::DbPool;
-use crate::models::{Trip, TripQuery};
 
 pub async fn get_trips(
     State(pool): State<DbPool>,
@@ -127,4 +127,20 @@ fn assign_group_ids(trips: &mut Vec<Trip>) {
             }
         }
     }
+}
+
+// --- Active bikes endpoint ---
+
+pub async fn get_active(
+    State(in_flight): State<Arc<RwLock<HashMap<String, DateTime<Utc>>>>>
+) -> Json<ActiveStats> {
+    let count = match in_flight.read() {
+        Ok(g) => g.len(),
+        Err(_) => 0,
+    };
+
+    Json(ActiveStats {
+        active_count: count,
+        last_updated: Utc::now().to_rfc3339(),
+    })
 }
