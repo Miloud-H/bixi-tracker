@@ -1,7 +1,12 @@
 import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup } from "./map.js";
-import { fetchTrips, filterByTimeWindow, minutesToHHMM } from "./trips.js";
-import { findNearestStation, haversineDistance, STATION_SNAP_METERS } from "./geo.js";
-import { showAlert, updateStats, updateSliderLabel, renderBikePanel, renderGroupPanel, renderNearbyPanel, TimelinePlayer } from "./ui.js";
+import { fetchTrips, filterByTimeWindow } from "./trips.js";
+import { findNearestStation, haversineDistance } from "./geo.js";
+import {
+  initTheme, toggleTheme,
+  showAlert, updateStats, updateSliderLabel, updateTopStations, drawHistogram,
+  renderBikePanel, renderGroupPanel, renderNearbyPanel,
+  TimelinePlayer
+} from "./ui.js";
 
 const GBFS_STATIONS_URL = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
 const RELOAD_INTERVAL_MS = 30_000;
@@ -15,15 +20,20 @@ class App {
     this.bikeLayer = null;
     this.focusLayer = null;
     this.lastTripCount = 0;
+    this.theme = initTheme();
 
-    this.datePicker = document.getElementById("datePicker");
-    this.timeSlider = document.getElementById("timeSlider");
-    this.timeWindow = document.getElementById("timeWindow");
-    this.showAllCheckbox = document.getElementById("showAllTrips");
+    this.datePicker    = document.getElementById("datePicker");
+    this.timeSlider    = document.getElementById("timeSlider");
+    this.timeWindow    = document.getElementById("timeWindow");
+    this.showAllCheck  = document.getElementById("showAllTrips");
+    this.histCanvas    = document.getElementById("histogramCanvas");
 
     this.player = new TimelinePlayer("timeSlider", () => this.render());
 
     this.datePicker.value = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
+
     this.bindEvents();
   }
 
@@ -34,14 +44,19 @@ class App {
       debounce = setTimeout(() => this.render(), 10);
     });
     this.datePicker.addEventListener("change", () => this.load());
-    this.showAllCheckbox.addEventListener("change", () => this.render());
+    this.showAllCheck.addEventListener("change", () => this.render());
+    this.timeWindow.addEventListener("input", () => this.render());
+
     document.getElementById("togglePlay").addEventListener("click", () => this.player.toggle());
     document.getElementById("btnSearch").addEventListener("click", () => this.searchBike());
     document.getElementById("btnReset").addEventListener("click", () => this.reset());
     document.getElementById("btnNearby").addEventListener("click", () => this.checkNearbyArrivals());
 
-    const now = new Date();
-    this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
+    document.getElementById("themeToggle").addEventListener("click", () => {
+      this.theme = toggleTheme(this.theme);
+      // Redraw histogram avec les bonnes couleurs
+      drawHistogram(this.histCanvas, this.allTrips);
+    });
 
     this.map.on("popupclose", () => this.resetStyles());
   }
@@ -63,6 +78,7 @@ class App {
       }
       this.lastTripCount = trips.length;
       this.allTrips = trips;
+      drawHistogram(this.histCanvas, trips);
       this.render();
     } catch (e) {
       console.error("Failed to load trips:", e);
@@ -72,7 +88,7 @@ class App {
   render() {
     const sliderVal = parseInt(this.timeSlider.value);
     const windowMin = parseInt(this.timeWindow.value) || 5;
-    const showAll = this.showAllCheckbox.checked;
+    const showAll   = this.showAllCheck.checked;
 
     updateSliderLabel(sliderVal);
 
@@ -84,6 +100,7 @@ class App {
 
     this.tripsLayer = renderTrips(this.map, visible, this.stations);
     updateStats(visible, this.allTrips, this.datePicker.value);
+    updateTopStations(visible, this.stations);
   }
 
   // --- Public actions (called from popup HTML via window.app) ---
@@ -98,17 +115,15 @@ class App {
     this.bikeLayer = window.L.layerGroup().addTo(this.map);
 
     renderBikePanel(trips, this.stations, "window.app.focusTrip");
-
     if (trips.length === 0) return;
 
     const bounds = [];
     trips.forEach((t) => {
       window.L.polyline([[t.start_lat, t.start_lon], [t.end_lat, t.end_lon]], {
-        color: "red", weight: 4, dashArray: "5, 10",
+        color: "var(--accent-red, #e74c3c)", weight: 4, dashArray: "5, 10",
       }).addTo(this.bikeLayer);
       bounds.push([t.start_lat, t.start_lon], [t.end_lat, t.end_lon]);
     });
-
     if (bounds.length) this.map.fitBounds(bounds);
   }
 
@@ -122,15 +137,15 @@ class App {
     highlightGroup(this.tripsLayer, groupId);
     const members = this.allTrips.filter((t) => t.group_id === groupId);
     renderGroupPanel(groupId, members, this.stations, "window.app.focusTrip");
-    showAlert(`Focus sur le groupe #${groupId} (${members.length} vélos)`);
+    showAlert(`Focus groupe #${groupId} — ${members.length} vélos`);
   }
 
   resetStyles() {
     resetLayerStyles(this.tripsLayer);
-    if (this.bikeLayer) { this.map.removeLayer(this.bikeLayer); this.bikeLayer = null; }
+    if (this.bikeLayer)  { this.map.removeLayer(this.bikeLayer);  this.bikeLayer  = null; }
     if (this.focusLayer) { this.map.removeLayer(this.focusLayer); this.focusLayer = null; }
     document.getElementById("nearbyResults").innerHTML = "";
-    document.getElementById("bikeResults").innerHTML = "";
+    document.getElementById("bikeResults").innerHTML   = "";
   }
 
   reset() {
@@ -142,7 +157,7 @@ class App {
 
   checkNearbyArrivals() {
     const div = document.getElementById("nearbyResults");
-    div.textContent = "Localisation... 🛰️";
+    div.textContent = "Localisation… 🛰";
 
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude, longitude } }) => {
@@ -151,22 +166,20 @@ class App {
           div.textContent = "❌ Aucune station à proximité (250 m).";
           return;
         }
-
         const arrivals = this.allTrips
           .filter((t) => haversineDistance(nearest.lat, nearest.lon, t.end_lat, t.end_lon) <= 60)
           .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))
           .slice(0, 3);
 
         if (arrivals.length > 0) {
-          const first = arrivals[0];
-          this.focusTrip(first.start_lat, first.start_lon, first.end_lat, first.end_lon);
+          const f = arrivals[0];
+          this.focusTrip(f.start_lat, f.start_lon, f.end_lat, f.end_lon);
         } else {
           this.map.setView([nearest.lat, nearest.lon], 16);
         }
-
         renderNearbyPanel(nearest.name, arrivals, "window.app.focusTrip");
       },
-      (err) => { div.textContent = `❌ Erreur GPS : ${err.message}`; }
+      (err) => { div.textContent = `❌ GPS : ${err.message}`; }
     );
   }
 }
