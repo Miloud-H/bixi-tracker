@@ -84,7 +84,7 @@ class App {
   async init() {
     const json = await fetch(GBFS_STATIONS_URL).then((r) => r.json());
     this.stations = json.data.stations;
-    bindClickPopup(this.map, this.allTrips, this.stations);
+    bindClickPopup(this.map, () => this.allTrips, this.stations);
     await this.load();
     await this.refreshActive();
 
@@ -100,7 +100,10 @@ class App {
   async load() {
     try {
       const trips = await fetchTrips(this.datePicker.value);
-      const isToday = this.datePicker.value === new Date().toISOString().split("T")[0];
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const localToday = new Date(now.getTime() - offset).toISOString().split("T")[0];
+      const isToday = this.datePicker.value === localToday;
       if (isToday && this.lastTripCount > 0 && trips.length > this.lastTripCount) {
         showAlert(`🚀 ${trips.length - this.lastTripCount} nouveau(x) trajet(s) !`);
       }

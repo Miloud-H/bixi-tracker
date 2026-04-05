@@ -131,10 +131,10 @@ export function focusTrip(map, sl1, sl2, el1, el2) {
   return focusLayer;
 }
 
-export function bindClickPopup(map, trips, stations) {
+export function bindClickPopup(map, getTrips, stations) {
   map.on("click", (e) => {
     const { lat, lng } = e.latlng;
-    const nearby = trips.filter(
+    const nearby = getTrips().filter(
       (t) => haversineDistance(lat, lng, t.end_lat, t.end_lon) <= SEARCH_RADIUS_METERS
     );
 
