@@ -152,7 +152,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
     let client = reqwest::Client::new();
     let mut positions = load_positions(&pool);
     let mut polls_since_cleanup = 0u32;
-    const CLEANUP_EVERY_N_POLLS: u32 = 120; // toutes les heures (120 × 30s)
+    const CLEANUP_EVERY_N_POLLS: u32 = 120; // Each hour (120 × 30s)
 
     println!("Tracker BIXI started");
 
@@ -161,7 +161,8 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
             Ok(res) => {
                 if let Ok(gbfs) = res.json::<GbfsResponse>().await {
                     let now = Utc::now();
-                    let current_ids: std::collections::HashSet<&str> = gbfs.data.bikes.iter()
+                    let available_ids: std::collections::HashSet<&str> = gbfs.data.bikes.iter()
+                        .filter(|b| b.is_available())
                         .map(|b| b.bike_id.as_str())
                         .collect();
 
@@ -193,16 +194,20 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                             }
                         }
 
-                        positions.insert(
-                            bike.bike_id.clone(),
-                            BikeState { lat, lon, timestamp: now },
-                        );
+                        if bike.is_available() {
+                            positions.insert(
+                                bike.bike_id.clone(),
+                                BikeState { lat, lon, timestamp: now },
+                            );
+                        } else {
+                            positions.remove(&bike.bike_id);
+                        }
                     }
 
                     {
                         let mut flight = in_flight.write().unwrap();
                         for id in positions.keys() {
-                            if !current_ids.contains(id.as_str()) {
+                            if !available_ids.contains(id.as_str()) {
                                 flight.entry(id.clone()).or_insert(now);
                             }
                         }

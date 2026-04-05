@@ -20,6 +20,16 @@ pub struct Bike {
     pub bike_id: String,
     pub lat: f64,
     pub lon: f64,
+    #[serde(default)]
+    pub is_reserved: u8,
+    #[serde(default)]
+    pub is_disabled: u8,
+}
+
+impl Bike {
+    pub fn is_available(&self) -> bool {
+        self.is_reserved == 0 && self.is_disabled == 0
+    }
 }
 
 // --- Internal state ---
