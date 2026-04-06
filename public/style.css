@@ -464,3 +464,9 @@ input[type="checkbox"] {
   color: var(--accent);
   font-weight: 700;
 }
+
+.highlightButton {
+  width:100%;
+  padding:2px;
+  margin: 5px 0;
+}

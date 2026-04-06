@@ -4,7 +4,6 @@ import {
   tripColor,
   MONTREAL_CENTER,
   SEARCH_RADIUS_METERS,
-  STATION_SNAP_METERS,
 } from "./geo.js";
 import { formatTime } from "./trips.js";
 
@@ -38,7 +37,7 @@ export function renderTrips(map, trips, stations) {
 
     const groupLabel = isGroup
       ? `<br><b style="color:#e74c3c;">👥 Groupe de ${groupCount} vélos (ID: ${trip.group_id})</b><br>
-         <button onclick="window.app.highlightGroup(${trip.group_id})" style="width:100%;font-size:10px;background:#f1f1f1;border:1px solid #ccc;padding:2px;">
+         <button class="highlightButton" onclick="window.app.highlightGroup(${trip.group_id})">
            Surligner le groupe
          </button>`
       : "";
@@ -60,6 +59,7 @@ export function renderTrips(map, trips, stations) {
       .bindPopup(popup);
 
     line.group_id = trip.group_id;
+    line.bike_id = trip.bike_id;
 
     // Direction arrow at midpoint
     const p1 = map.project([trip.start_lat, trip.start_lon]);
@@ -67,7 +67,7 @@ export function renderTrips(map, trips, stations) {
     const mid = map.unproject(L.point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2));
     const angle = (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
 
-    L.marker(mid, {
+    const arrow = L.marker(mid, {
       icon: L.divIcon({
         className: "trip-arrow",
         html: `<div style="transform:rotate(${angle}deg);color:${color};font-size:16px;text-shadow:1px 1px 2px #fff;">➤</div>`,
@@ -76,29 +76,43 @@ export function renderTrips(map, trips, stations) {
       }),
       interactive: false,
     }).addTo(layer);
+    arrow.group_id = trip.group_id;
+    arrow.bike_id = trip.bike_id;
 
-    L.circleMarker([trip.end_lat, trip.end_lon], {
+    const dot = L.circleMarker([trip.end_lat, trip.end_lon], {
       radius: 3,
       color,
       fillOpacity: 1,
       stroke: false,
     }).addTo(layer);
+    dot.group_id = trip.group_id;
+    dot.bike_id = trip.bike_id;
   });
 
   return layer;
 }
 
 export function highlightGroup(layer, groupId) {
+  layer._map.closePopup();
   layer.eachLayer((l) => {
-    if (l instanceof L.Polyline) {
-      if (l.group_id === groupId) {
+    const isTarget = l.group_id === groupId;
+    if (isTarget) {
+      if (l instanceof L.Polyline) {
         l.setStyle({ color: "#00FFFF", weight: 6, opacity: 1 });
         l.bringToFront();
-      } else {
-        l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.1 });
+      } else if (l instanceof L.CircleMarker) {
+        l.setStyle({ opacity: 1, fillOpacity: 1 });
+      } else if (l.getElement) { // Pour les Markers (flèches)
+        l.getElement().style.opacity = "1";
       }
-    } else if (l instanceof L.CircleMarker) {
-      l.setStyle({ opacity: 0.1, fillOpacity: 0.1 });
+    } else {
+      if (l instanceof L.Polyline) {
+        l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.2 });
+      } else if (l instanceof L.CircleMarker) {
+        l.setStyle({ opacity: 0.2, fillOpacity: 0.2 });
+      } else if (l.getElement) {
+        l.getElement().style.opacity = "0.2";
+      }
     }
   });
 }
@@ -115,6 +129,8 @@ export function resetLayerStyles(layer) {
       });
     } else if (l instanceof L.CircleMarker) {
       l.setStyle({ opacity: 1, fillOpacity: 1 });
+    } else if (l.getElement) {
+      l.getElement().style.opacity = "1";
     }
   });
 }

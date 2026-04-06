@@ -153,16 +153,11 @@ export function updateActiveCount(count) {
 
 // --- Stats footer ---
 
-export function updateStats(visibleTrips, allTrips, selectedDate) {
+export function updateStats(visibleTrips) {
   const pad = (n) => n.toString().padStart(2, "0");
   document.getElementById("statCount").textContent = visibleTrips.length;
 
-  const totalKm = allTrips
-    .filter((t) => {
-      const d = new Date(t.end_time);
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` === selectedDate;
-    })
-    .reduce((sum, t) => sum + t.distance, 0) / 1000;
+  const totalKm = visibleTrips.reduce((sum, t) => sum + t.distance, 0) / 1000;
   document.getElementById("statDist").textContent = totalKm.toFixed(1);
 
   const uniqueGroups = new Set(

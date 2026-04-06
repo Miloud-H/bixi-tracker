@@ -20,11 +20,11 @@ class App {
     this.stations   = [];
     this.allTrips   = [];
     this.tripsLayer = null;
-    this.bikeLayer  = null;
     this.focusLayer = null;
     this.lastTripCount = 0;
     this.theme      = initTheme();
     this.chartOpen  = false;
+    this.activeSearch = "";
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -135,31 +135,58 @@ class App {
     visible = filterByDistance(visible, minDist);
 
     this.tripsLayer = renderTrips(this.map, visible, this.stations);
-    updateStats(visible, this.allTrips, this.datePicker.value);
+    updateStats(visible);
     updateTopStations(visible, this.stations);
+
+    if (this.activeSearch) this._applyBikeHighlight(this.activeSearch);
   }
 
   // --- Public (popup onclick via window.app) ---
 
   searchBike(id) {
     const input = document.getElementById("bikeSearch");
-    if (id) input.value = id;
+    if (id) {
+      input.value = id;
+      this.tripsLayer._map.closePopup();
+    }
     const query = input.value.trim().toUpperCase();
+    this.activeSearch = query;
+
     const trips = this.allTrips.filter((t) => t.bike_id.toUpperCase() === query);
-
-    if (this.bikeLayer) this.map.removeLayer(this.bikeLayer);
-    this.bikeLayer = window.L.layerGroup().addTo(this.map);
     renderBikePanel(trips, this.stations, "window.app.focusTrip");
-    if (trips.length === 0) return;
 
+    if (!this.tripsLayer) return;
+
+    if (query === "") {
+      resetLayerStyles(this.tripsLayer);
+      return;
+    }
+
+    this._applyBikeHighlight(query);
+
+    if (trips.length === 0) return;
     const bounds = [];
-    trips.forEach((t) => {
-      window.L.polyline([[t.start_lat, t.start_lon], [t.end_lat, t.end_lon]], {
-        color: "#e74c3c", weight: 4, dashArray: "5, 10",
-      }).addTo(this.bikeLayer);
-      bounds.push([t.start_lat, t.start_lon], [t.end_lat, t.end_lon]);
+    trips.forEach((t) => bounds.push([t.start_lat, t.start_lon], [t.end_lat, t.end_lon]));
+    if (bounds.length) this.map.fitBounds(bounds, { padding: [50, 50] });
+  }
+
+  _applyBikeHighlight(query) {
+    if (!this.tripsLayer) return;
+    this.tripsLayer.eachLayer((l) => {
+      const isMatch = l.bike_id && l.bike_id.toUpperCase() === query;
+      if (l instanceof L.Polyline) {
+        if (isMatch) {
+          l.setStyle({ color: "#e74c3c", weight: 5, opacity: 1 });
+          l.bringToFront();
+        } else {
+          l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.15 });
+        }
+      } else if (l instanceof L.CircleMarker) {
+        l.setStyle({ opacity: isMatch ? 1 : 0.15, fillOpacity: isMatch ? 1 : 0.15 });
+      } else if (l.getElement) {
+        l.getElement().style.opacity = isMatch ? "1" : "0.15";
+      }
     });
-    if (bounds.length) this.map.fitBounds(bounds);
   }
 
   focusTrip(sl1, sl2, el1, el2) {
@@ -176,8 +203,8 @@ class App {
   }
 
   resetStyles() {
+    this.activeSearch = "";
     resetLayerStyles(this.tripsLayer);
-    if (this.bikeLayer)  { this.map.removeLayer(this.bikeLayer);  this.bikeLayer  = null; }
     if (this.focusLayer) { this.map.removeLayer(this.focusLayer); this.focusLayer = null; }
     document.getElementById("nearbyResults").innerHTML = "";
     document.getElementById("bikeResults").innerHTML   = "";
