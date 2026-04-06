@@ -43,17 +43,30 @@ class App {
     this.bindEvents();
   }
 
+  updateRangeSliderPct(el) {
+      const val = el.value
+      const min = el.min || 0;
+      const max = el.max || 100;
+      const pct = ((val - min) / (max - min)) * 100;
+      el.style.setProperty('--slider-pct', `${pct}%`);
+    }
+
   bindEvents() {
     let debounce;
+    
     const debouncedRender = () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => this.render(), 10);
     };
 
-    this.timeSlider.addEventListener("input", debouncedRender);
+    this.timeSlider.addEventListener("input", e => {
+      this.updateRangeSliderPct(e.target)
+      debouncedRender()
+    });
     this.timeWindow.addEventListener("input", debouncedRender);
-    this.distSlider.addEventListener("input", () => {
+    this.distSlider.addEventListener("input", e => {
       updateDistLabel(parseInt(this.distSlider.value));
+      this.updateRangeSliderPct(e.target)
       debouncedRender();
     });
 
@@ -88,8 +101,10 @@ class App {
     await this.load();
     await this.refreshActive();
 
-    setInterval(() => this.load(),          RELOAD_INTERVAL_MS);
+    setInterval(() => this.load(), RELOAD_INTERVAL_MS);
     setInterval(() => this.refreshActive(), ACTIVE_INTERVAL_MS);
+    this.updateRangeSliderPct(this.timeSlider);
+    this.updateRangeSliderPct(this.distSlider);
   }
 
   async refreshActive() {
