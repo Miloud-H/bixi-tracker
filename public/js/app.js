@@ -147,7 +147,7 @@ class App {
     const input = document.getElementById("bikeSearch");
     if (id) {
       input.value = id;
-      this.tripsLayer._map.closePopup();
+      this.map.closePopup();
     }
     const query = input.value.trim().toUpperCase();
     this.activeSearch = query;
