@@ -44,12 +44,24 @@ export function minutesToHHMM(mins) {
   return `${h}:${m}`;
 }
 
-export function filterByTimeWindow(trips, centerMinutes, windowMinutes) {
-  const from = centerMinutes - windowMinutes;
-  const to = centerMinutes + windowMinutes;
+export function tripStartMinutes(trip) {
+  const date = new Date(trip.start_time);
+  const [h, m] = date
+    .toLocaleTimeString("it-IT", {
+      timeZone: "America/Montreal",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    .split(":")
+    .map(Number);
+  return h * 60 + m;
+}
+
+export function filterActiveAt(trips, sliderMinutes) {
   return trips.filter((t) => {
-    const mins = tripEndMinutes(t);
-    return mins >= from && mins <= to;
+    const start = tripStartMinutes(t);
+    const end   = tripEndMinutes(t);
+    return start <= sliderMinutes && sliderMinutes <= end;
   });
 }
 

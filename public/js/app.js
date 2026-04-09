@@ -1,5 +1,5 @@
 import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup } from "./map.js";
-import { fetchTrips, fetchActive, filterByTimeWindow, filterByDistance } from "./trips.js";
+import { fetchTrips, fetchActive, filterActiveAt, filterByDistance } from "./trips.js";
 import { findNearestStation, haversineDistance } from "./geo.js";
 import {
   initTheme, toggleTheme,
@@ -12,7 +12,7 @@ import {
 
 const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
 const RELOAD_INTERVAL_MS = 30_000;
-const ACTIVE_INTERVAL_MS = 35_000; // légèrement décalé du tracker
+const ACTIVE_INTERVAL_MS = 35_000;
 
 class App {
   constructor() {
@@ -28,7 +28,6 @@ class App {
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
-    this.timeWindow   = document.getElementById("timeWindow");
     this.showAllCheck = document.getElementById("showAllTrips");
     this.distSlider   = document.getElementById("distSlider");
     this.histCanvas   = document.getElementById("histogramCanvas");
@@ -44,29 +43,27 @@ class App {
   }
 
   updateRangeSliderPct(el) {
-      const val = el.value
-      const min = el.min || 0;
-      const max = el.max || 100;
-      const pct = ((val - min) / (max - min)) * 100;
-      el.style.setProperty('--slider-pct', `${pct}%`);
-    }
+    const val = el.value;
+    const min = el.min || 0;
+    const max = el.max || 100;
+    const pct = ((val - min) / (max - min)) * 100;
+    el.style.setProperty('--slider-pct', `${pct}%`);
+  }
 
   bindEvents() {
     let debounce;
-    
     const debouncedRender = () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => this.render(), 10);
     };
 
     this.timeSlider.addEventListener("input", e => {
-      this.updateRangeSliderPct(e.target)
-      debouncedRender()
+      this.updateRangeSliderPct(e.target);
+      debouncedRender();
     });
-    this.timeWindow.addEventListener("input", debouncedRender);
     this.distSlider.addEventListener("input", e => {
       updateDistLabel(parseInt(this.distSlider.value));
-      this.updateRangeSliderPct(e.target)
+      this.updateRangeSliderPct(e.target);
       debouncedRender();
     });
 
@@ -135,7 +132,6 @@ class App {
 
   render() {
     const sliderVal = parseInt(this.timeSlider.value);
-    const windowMin = parseInt(this.timeWindow.value) || 5;
     const showAll   = this.showAllCheck.checked;
     const minDist   = parseInt(this.distSlider.value) || 0;
 
@@ -145,7 +141,7 @@ class App {
 
     let visible = showAll
       ? this.allTrips
-      : filterByTimeWindow(this.allTrips, sliderVal, windowMin);
+      : filterActiveAt(this.allTrips, sliderVal);
 
     visible = filterByDistance(visible, minDist);
 
