@@ -13,7 +13,7 @@ const POLL_INTERVAL_SECS: u64 = 30;
 
 /// Valid bounding box for Montreal bikes.
 fn is_valid_position(lat: f64, lon: f64) -> bool {
-    (45.0..=46.0).contains(&lat) && (-74.5..=-73.0).contains(&lon)
+    (45.0..=46.0).contains(&lat) && (-74.5..=-71.5).contains(&lon)
 }
 
 /// Swap lat/lon if they appear inverted (known GBFS quirk).
