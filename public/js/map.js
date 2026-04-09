@@ -23,9 +23,9 @@ export function initMap() {
 export function renderTrips(map, trips, stations) {
   const layer = L.layerGroup().addTo(map);
 
-  trips.forEach((trip, i) => {
+  trips.forEach((trip) => {
     const isGroup = trip.group_id !== null;
-    const color = isGroup ? "#e74c3c" : tripColor(i);
+    const color = isGroup ? "#e74c3c" : tripColor(trip.bike_id);
     const weight = isGroup ? 4 : 2;
 
     const startStation = findNearestStation(stations, trip.start_lat, trip.start_lon);

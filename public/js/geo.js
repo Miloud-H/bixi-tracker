@@ -30,9 +30,13 @@ export function findNearestStation(stations, lat, lon, maxDist = STATION_SNAP_ME
  * Generates a visually distinct color from an index,
  * avoiding green hues (which clash with the map tiles).
  */
-export function tripColor(index) {
+export function tripColor(bikeId) {
+  let hash = 0;
+  for (let i = 0; i < bikeId.length; i++) {
+    hash = (hash * 31 + bikeId.charCodeAt(i)) >>> 0;
+  }
   const range = 280;
-  const rawHue = (index * 47) % range;
+  const rawHue = (hash * 47) % range;
   const hue = rawHue >= 80 ? rawHue + 80 : rawHue;
   return `hsl(${hue}, 80%, 45%)`;
 }
