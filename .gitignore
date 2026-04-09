@@ -2,10 +2,11 @@
 /target/
 Cargo.lock
 
-# Database (données locales, ne pas versionner)
+# Runtime state
 *.db
 *.db-shm
 *.db-wal
+in_flight.json
 
 # Éditeurs
 .vscode/

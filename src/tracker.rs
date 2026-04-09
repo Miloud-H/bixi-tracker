@@ -10,6 +10,7 @@ use crate::models::{Bike, BikeState, GbfsResponse, InFlightBikes};
 
 const GBFS_URL: &str = "https://gbfs.velobixi.com/gbfs/en/free_bike_status.json";
 const POLL_INTERVAL_SECS: u64 = 30;
+const IN_FLIGHT_PATH: &str = "in_flight.json";
 
 /// Valid bounding box for Montreal bikes.
 fn is_valid_position(lat: f64, lon: f64) -> bool {
@@ -26,10 +27,8 @@ fn normalize_coords(bike: &Bike) -> (f64, f64) {
 }
 
 /// Maximum age of a saved position before it's considered stale.
-/// Avoids false trips after a long server downtime.
 const MAX_POSITION_AGE_SECS: i64 = 300; // 5 minutes
 
-/// Load last known positions from DB, discarding any older than MAX_POSITION_AGE_SECS.
 fn load_positions(pool: &DbPool) -> HashMap<String, BikeState> {
     let conn = match pool.get() {
         Ok(c) => c,
@@ -71,7 +70,58 @@ fn load_positions(pool: &DbPool) -> HashMap<String, BikeState> {
     positions
 }
 
-/// Insert all detected trips in a single transaction. Returns count of inserted rows.
+fn load_in_flight(in_flight: &InFlightBikes) {
+    let data = match std::fs::read_to_string(IN_FLIGHT_PATH) {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+
+    let map: HashMap<String, String> = match serde_json::from_str(&data) {
+        Ok(m) => m,
+        Err(e) => { eprintln!("Failed to parse in_flight.json: {e}"); return; }
+    };
+
+    let cutoff = Utc::now() - chrono::Duration::minutes(120);
+    let mut count = 0usize;
+
+    if let Ok(mut flight) = in_flight.write() {
+        for (bike_id, ts_str) in map {
+            if let Ok(ts) = DateTime::parse_from_rfc3339(&ts_str) {
+                let ts_utc = ts.with_timezone(&Utc);
+                if ts_utc > cutoff {
+                    flight.insert(bike_id, ts_utc);
+                    count += 1;
+                }
+            }
+        }
+    }
+
+    if count > 0 {
+        println!("Restored {} in-flight bikes from disk", count);
+    }
+}
+
+fn save_in_flight(in_flight: &InFlightBikes) {
+    let flight = match in_flight.read() {
+        Ok(f) => f,
+        Err(_) => return,
+    };
+
+    let map: HashMap<&String, String> = flight
+        .iter()
+        .map(|(id, ts)| (id, ts.to_rfc3339()))
+        .collect();
+
+    match serde_json::to_string(&map) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(IN_FLIGHT_PATH, json) {
+                eprintln!("Failed to save in_flight.json: {e}");
+            }
+        }
+        Err(e) => eprintln!("Failed to serialize in_flight: {e}"),
+    }
+}
+
 fn insert_trips(
     pool: &DbPool,
     trips: &[(String, String, f64, f64, f64, f64, f64)],
@@ -110,7 +160,6 @@ fn insert_trips(
     count
 }
 
-/// Persist all current positions to DB in a single transaction.
 fn save_positions(pool: &DbPool, positions: &HashMap<String, BikeState>) {
     let mut conn = match pool.get() {
         Ok(c) => c,
@@ -138,8 +187,6 @@ fn save_positions(pool: &DbPool, positions: &HashMap<String, BikeState>) {
     }
 }
 
-
-/// (moved more than 15 m and speed under 50 km/h).
 fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     if distance_m <= 15.0 || duration_secs <= 0.0 {
         return false;
@@ -151,6 +198,7 @@ fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
 pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
     let client = reqwest::Client::new();
     let mut positions = load_positions(&pool);
+    load_in_flight(&in_flight);
     let mut polls_since_cleanup = 0u32;
     const CLEANUP_EVERY_N_POLLS: u32 = 120; // Each hour (120 × 30s)
 
@@ -228,6 +276,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                     }
 
                     save_positions(&pool, &positions);
+                    save_in_flight(&in_flight);
 
                     polls_since_cleanup += 1;
                     if polls_since_cleanup >= CLEANUP_EVERY_N_POLLS {
