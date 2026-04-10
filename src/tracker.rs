@@ -254,9 +254,12 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
 
                     {
                         let mut flight = in_flight.write().unwrap();
-                        for id in positions.keys() {
+                        for (id, state) in &positions {
                             if !available_ids.contains(id.as_str()) {
-                                flight.entry(id.clone()).or_insert(now);
+                                let absent_secs = (now - state.timestamp).num_seconds();
+                                if absent_secs >= 60 {
+                                    flight.entry(id.clone()).or_insert(now);
+                                }
                             }
                         }
                         for id in &returned {
