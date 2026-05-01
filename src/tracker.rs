@@ -12,7 +12,8 @@ const GBFS_URL: &str = "https://gbfs.velobixi.com/gbfs/en/free_bike_status.json"
 const POLL_INTERVAL_SECS: u64 = 30;
 const IN_FLIGHT_PATH: &str = "in_flight.json";
 
-/// Valid bounding box for Montreal bikes.
+const MIN_ABSENT_SECS: i64 = 90;
+
 fn is_valid_position(lat: f64, lon: f64) -> bool {
     (45.0..=46.0).contains(&lat) && (-74.5..=-71.5).contains(&lon)
 }
@@ -26,8 +27,7 @@ fn normalize_coords(bike: &Bike) -> (f64, f64) {
     }
 }
 
-/// Maximum age of a saved position before it's considered stale.
-const MAX_POSITION_AGE_SECS: i64 = 300; // 5 minutes
+const MAX_POSITION_AGE_SECS: i64 = 300;
 
 fn load_positions(pool: &DbPool) -> HashMap<String, BikeState> {
     let conn = match pool.get() {
@@ -199,8 +199,9 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
     let client = reqwest::Client::new();
     let mut positions = load_positions(&pool);
     load_in_flight(&in_flight);
+    let mut disappeared_at: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut polls_since_cleanup = 0u32;
-    const CLEANUP_EVERY_N_POLLS: u32 = 120; // Each hour (120 × 30s)
+    const CLEANUP_EVERY_N_POLLS: u32 = 120;
 
     println!("Tracker BIXI started");
 
@@ -242,6 +243,8 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                             }
                         }
 
+                        disappeared_at.remove(&bike.bike_id);
+
                         if bike.is_available() {
                             positions.insert(
                                 bike.bike_id.clone(),
@@ -252,14 +255,18 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                         }
                     }
 
+                    for id in positions.keys() {
+                        if !available_ids.contains(id.as_str()) {
+                            disappeared_at.entry(id.clone()).or_insert(now);
+                        }
+                    }
+                    disappeared_at.retain(|id, _| !available_ids.contains(id.as_str()));
+
                     {
                         let mut flight = in_flight.write().unwrap();
-                        for (id, state) in &positions {
-                            if !available_ids.contains(id.as_str()) {
-                                let absent_secs = (now - state.timestamp).num_seconds();
-                                if absent_secs >= 60 {
-                                    flight.entry(id.clone()).or_insert(now);
-                                }
+                        for (id, &first_absent) in &disappeared_at {
+                            if (now - first_absent).num_seconds() >= MIN_ABSENT_SECS {
+                                flight.entry(id.clone()).or_insert(first_absent);
                             }
                         }
                         for id in &returned {
