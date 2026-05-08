@@ -188,11 +188,16 @@ fn save_positions(pool: &DbPool, positions: &HashMap<String, BikeState>) {
 }
 
 fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
-    if distance_m <= 15.0 || duration_secs <= 0.0 {
+    if distance_m <= 100.0 || duration_secs <= 0.0 {
         return false;
     }
+
+    if duration_secs > 7200.0 {
+        return false;
+    }
+
     let speed_kmh = (distance_m / duration_secs) * 3.6;
-    speed_kmh < 50.0
+    speed_kmh >= 3.0 && speed_kmh < 50.0
 }
 
 pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
