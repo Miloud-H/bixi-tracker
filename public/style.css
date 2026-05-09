@@ -805,7 +805,7 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   /* La carte prend tout l'écran */
   #map { height: 100dvh; }
 
