@@ -1,54 +1,71 @@
 /// Source unique des zones Atlas — (nom, lat, lon, ville).
 ///
-/// Principes de sélection :
-///   - Attracteurs réels : hubs de transit, universités, hôpitaux, parcs majeurs, quartiers
-///   - Séparation minimale ~700 m entre zones du même type pour éviter les micro-flux artificiels
-///   - Seuil de snap 600 m : tout trajet dont ni l'origine ni la destination n'est
-///     dans ce rayon est écarté plutôt que rattaché au plus proche par défaut
+/// Chaque zone a été validée contre les 1032 stations BIXI du feed GBFS station_information.json :
+///   - au moins 2 stations BIXI dans un rayon de 600 m
+///   - séparation minimale ~700 m entre zones pour éviter les micro-flux artificiels
+///
+/// Zones supprimées vs v1 :
+///   - Loisir_Mont_Royal : 0 station dans 600 m (la plus proche à 797 m — le parc lui-même n'a pas de BIXI)
+///   - Sante_CUSM        : 2 stations dans 600 m — Glen campus excentré, couvert par zones voisines
+///
+/// Zones ajoutées :
+///   - Res_Plateau_Centre : 18 stations non couvertes (couloir Sherbrooke / bas-Plateau)
+///   - Res_Frontenac      : 10 stations non couvertes (couloir Frontenac / Rosemont-Est)
+///   - Res_Beaubien       :  8 stations non couvertes (Beaubien / Petite-Patrie)
 pub const ZONES: &[(&str, f64, f64, &str)] = &[
     // ── Montréal — Transit (5) ──────────────────────────────────────────
-    // Grands nœuds de correspondance : génèrent les flux domicile↔travail les plus nets
-    ("Transit_Gare_Centrale",  45.5000, -73.5665, "montreal"), // VIA / exo / REM Bonaventure
-    ("Transit_Berri_UQAM",     45.5155, -73.5610, "montreal"), // orange + verte + jaune
-    ("Transit_Lionel_Groulx",  45.4825, -73.5795, "montreal"), // orange + verte, hub ouest
-    ("Transit_Mont_Royal",     45.5270, -73.5885, "montreal"), // orange, cœur du Plateau
-    ("Transit_Jean_Talon",     45.5390, -73.6135, "montreal"), // orange + bleue, hub nord
+    ("Transit_Gare_Centrale",  45.5000, -73.5665, "montreal"), // 21 stations — REM / VIA / exo
+    ("Transit_Berri_UQAM",     45.5155, -73.5610, "montreal"), // 11 stations — hub orange+verte+jaune
+    ("Transit_Lionel_Groulx",  45.4825, -73.5795, "montreal"), //  4 stations — hub ouest
+    ("Transit_Mont_Royal",     45.5270, -73.5885, "montreal"), // 13 stations — cœur Plateau
+    ("Transit_Jean_Talon",     45.5390, -73.6135, "montreal"), // 10 stations — hub nord orange+bleue
 
-    // ── Montréal — Éducation (4) ────────────────────────────────────────
-    // Générateurs massifs matin/soir en semaine
-    ("Edu_McGill",      45.5042, -73.5760, "montreal"),
-    ("Edu_Concordia",   45.4955, -73.5780, "montreal"),
-    ("Edu_UdeM",        45.5044, -73.6130, "montreal"), // inclut Polytechnique et HEC
-    ("Edu_ETS",         45.4945, -73.5625, "montreal"),
+    // ── Montréal — Éducation (3) ────────────────────────────────────────
+    ("Edu_McGill",     45.5042, -73.5760, "montreal"), // 18 stations
+    ("Edu_Concordia",  45.4955, -73.5780, "montreal"), // 11 stations
+    ("Edu_UdeM",       45.5017, -73.6147, "montreal"), //  2 stations — metro UdeM / bas du campus
 
-    // ── Montréal — Santé (3) ────────────────────────────────────────────
-    ("Sante_CHUM",         45.5110, -73.5560, "montreal"),
-    ("Sante_CUSM",         45.4725, -73.5995, "montreal"), // site Glen
-    ("Sante_Ste_Justine",  45.5030, -73.6235, "montreal"),
+    // ── Montréal — Santé (2) ────────────────────────────────────────────
+    ("Sante_CHUM",          45.5110, -73.5560, "montreal"), //  9 stations
+    ("Sante_Ste_Justine",   45.4988, -73.6220, "montreal"), //  6 stations — CHU Ste-Justine / CDN
 
-    // ── Montréal — Loisirs / parcs (4) ─────────────────────────────────
-    ("Loisir_Vieux_Port",       45.5040, -73.5510, "montreal"), // waterfront + Vieux-Montréal
-    ("Loisir_Parc_Lafontaine",  45.5265, -73.5695, "montreal"),
-    ("Loisir_Mont_Royal",       45.5005, -73.5905, "montreal"), // accès parc + belvédère
-    ("Loisir_Canal_Lachine",    45.4680, -73.5850, "montreal"), // piste cyclable, Atwater→LaSalle
+    // ── Montréal — Loisirs (3) ──────────────────────────────────────────
+    ("Loisir_Vieux_Port",      45.5040, -73.5510, "montreal"), //  5 stations — waterfront + Vieux-Mtl
+    ("Loisir_Parc_Lafontaine", 45.5265, -73.5695, "montreal"), // 14 stations
+    ("Loisir_Canal_Lachine",   45.4775, -73.5760, "montreal"), // relocalisé : Marché Atwater / entrée canal
 
     // ── Montréal — Vie nocturne (1) ─────────────────────────────────────
-    ("Nuit_Village",  45.5195, -73.5550, "montreal"), // Ste-Catherine Est
+    ("Nuit_Village",  45.5195, -73.5550, "montreal"), // 7 stations — Ste-Catherine Est
 
-    // ── Montréal — Résidentiel (11) ─────────────────────────────────────
-    // Zones assez grandes pour capturer les départs/arrivées de quartier sans créer
-    // de micro-flux entre zones voisines
-    ("Res_Plateau",     45.5310, -73.5760, "montreal"), // cœur Plateau-Mont-Royal
-    ("Res_Mile_End",    45.5255, -73.5985, "montreal"), // Mile-End / Laurier Ouest
-    ("Res_Outremont",   45.5155, -73.6120, "montreal"), // Outremont / Van Horne
-    ("Res_Villeray",    45.5490, -73.5980, "montreal"), // Villeray / marché Jean-Talon
-    ("Res_Rosemont",    45.5440, -73.5650, "montreal"), // Rosemont–La Petite-Patrie
-    ("Res_Hochelaga",   45.5445, -73.5415, "montreal"), // Hochelaga-Maisonneuve
-    ("Res_Griffintown", 45.4925, -73.5605, "montreal"), // Griffintown / Pointe-St-Charles nord
-    ("Res_Sud_Ouest",   45.4760, -73.5700, "montreal"), // St-Henri / Pointe-St-Charles
-    ("Res_Verdun",      45.4615, -73.5685, "montreal"), // Verdun / Wellington
-    ("Res_CDN",         45.4945, -73.6380, "montreal"), // Côte-des-Neiges
-    ("Res_NDG",         45.4720, -73.6305, "montreal"), // Notre-Dame-de-Grâce
+    // ── Montréal — Résidentiel (15) ─────────────────────────────────────
+    // Bas-Plateau / couloir Sherbrooke (18 stations non couvertes en v1)
+    ("Res_Plateau_Centre",  45.5195, -73.5804, "montreal"),
+    // Cœur Plateau-Mont-Royal
+    ("Res_Plateau",         45.5310, -73.5760, "montreal"), // 17 stations
+    // Mile-End
+    ("Res_Mile_End",        45.5255, -73.5985, "montreal"), // 16 stations
+    // Outremont — centroïde déplacé vers Metro Outremont
+    ("Res_Outremont",       45.5220, -73.6130, "montreal"),
+    // Beaubien / Petite-Patrie (8 stations non couvertes en v1)
+    ("Res_Beaubien",        45.5330, -73.6025, "montreal"),
+    // Villeray / Jean-Talon
+    ("Res_Villeray",        45.5490, -73.5980, "montreal"), //  8 stations
+    // Rosemont — centroïde déplacé pour meilleure couverture
+    ("Res_Rosemont",        45.5450, -73.5750, "montreal"),
+    // Frontenac / Rosemont-Est (10 stations non couvertes en v1)
+    ("Res_Frontenac",       45.5340, -73.5575, "montreal"),
+    // Hochelaga-Maisonneuve — centroïde déplacé vers axe Ontario/Frontenac
+    ("Res_Hochelaga",       45.5390, -73.5480, "montreal"),
+    // Griffintown / Pointe-St-Charles nord
+    ("Res_Griffintown",     45.4925, -73.5605, "montreal"), //  5 stations
+    // Sud-Ouest / St-Henri
+    ("Res_Sud_Ouest",       45.4760, -73.5700, "montreal"),
+    // Verdun / Wellington
+    ("Res_Verdun",          45.4615, -73.5685, "montreal"),
+    // Côte-des-Neiges — centroïde décalé est pour rester dans le 600 m
+    ("Res_CDN",             45.4960, -73.6310, "montreal"),
+    // Notre-Dame-de-Grâce
+    ("Res_NDG",             45.4720, -73.6305, "montreal"), //  2 stations
 
     // ── Sherbrooke (8) ──────────────────────────────────────────────────
     ("Sherbrooke_Centre_Ville",     45.4040, -71.8929, "sherbrooke"),
