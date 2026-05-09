@@ -152,6 +152,71 @@ export function destroyDailyChart() {
   if (dailyChartInstance) { dailyChartInstance.destroy(); dailyChartInstance = null; }
 }
 
+// --- Duration distribution chart ---
+
+let durationChartInstance = null;
+
+export function drawDurationChart(canvas, allTrips) {
+  if (!canvas) return;
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const accent = isDark ? "#a78bfa" : "#7c3aed";
+  const textColor = isDark ? "#9aa3b8" : "#555555";
+  const gridColor = isDark ? "#2a3348" : "#e8e8e8";
+
+  const bins   = [0, 0, 0, 0, 0, 0, 0, 0];
+  const labels = ["<5m", "5-10", "10-15", "15-20", "20-30", "30-45", "45-60", "60+"];
+
+  for (const t of allTrips) {
+    const dur = (new Date(t.end_time) - new Date(t.start_time)) / 60000;
+    if      (dur <  5)  bins[0]++;
+    else if (dur < 10)  bins[1]++;
+    else if (dur < 15)  bins[2]++;
+    else if (dur < 20)  bins[3]++;
+    else if (dur < 30)  bins[4]++;
+    else if (dur < 45)  bins[5]++;
+    else if (dur < 60)  bins[6]++;
+    else                bins[7]++;
+  }
+
+  if (durationChartInstance) {
+    durationChartInstance.data.datasets[0].data = bins;
+    durationChartInstance.data.datasets[0].backgroundColor = accent + "88";
+    durationChartInstance.data.datasets[0].borderColor = accent;
+    durationChartInstance.update();
+    return;
+  }
+
+  durationChartInstance = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data: bins,
+        backgroundColor: accent + "88",
+        borderColor: accent,
+        borderWidth: 1,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} trajet${ctx.raw !== 1 ? "s" : ""}` } },
+      },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 9 } }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor, font: { size: 9 } }, grid: { color: gridColor }, beginAtZero: true },
+      },
+    },
+  });
+}
+
+export function destroyDurationChart() {
+  if (durationChartInstance) { durationChartInstance.destroy(); durationChartInstance = null; }
+}
+
 // --- Slider ---
 
 export function updateSliderLabel(minutes) {

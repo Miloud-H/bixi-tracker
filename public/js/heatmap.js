@@ -24,6 +24,7 @@ let allPoints  = [];
 let heatLayer  = null;
 let activeCity = 'montreal';
 let weekMode   = false;
+let tripType   = 'departures';
 let playInterval = null;
 
 const slider = document.getElementById('hourSlider');
@@ -41,9 +42,11 @@ function render() {
 
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 
+  const label = tripType === 'arrivals' ? 'arrivée' : 'départ';
+  const labelP = tripType === 'arrivals' ? 'arrivées' : 'départs';
   if (pts.length === 0) {
     document.getElementById('statsDisplay').innerHTML =
-      weekMode ? `Aucun départ à <b>${hour}h</b> (7 jours)` : `Aucun départ à <b>${hour}h</b>`;
+      weekMode ? `Aucun(e) ${label} à <b>${hour}h</b> (7 jours)` : `Aucun(e) ${label} à <b>${hour}h</b>`;
     return;
   }
 
@@ -61,16 +64,15 @@ function render() {
 
   const total = pts.reduce((s, p) => s + p.volume, 0);
   document.getElementById('statsDisplay').innerHTML = weekMode
-    ? `<b>${total}</b> départs à <b>${hour}h</b> sur 7 jours — <b>${pts.length}</b> zones`
-    : `<b>${total}</b> départs à <b>${hour}h</b> — <b>${pts.length}</b> zones actives`;
+    ? `<b>${total}</b> ${labelP} à <b>${hour}h</b> sur 7 jours — <b>${pts.length}</b> zones`
+    : `<b>${total}</b> ${labelP} à <b>${hour}h</b> — <b>${pts.length}</b> zones actives`;
 }
 
 async function loadData(date) {
   document.getElementById('loader').style.display = 'flex';
   try {
-    const url = weekMode
-      ? `/api/heatmap?date=${date}&week=1`
-      : `/api/heatmap?date=${date}`;
+    const base = `/api/heatmap?date=${date}&type=${tripType}`;
+    const url = weekMode ? `${base}&week=1` : base;
     allPoints = await fetch(url).then(r => r.json());
     render();
   } catch {
@@ -115,6 +117,16 @@ document.querySelectorAll('.city-btn').forEach(btn => {
     map.flyTo(city.center, city.zoom, { duration: 0.8 });
     render();
   });
+});
+
+const btnType = document.getElementById('btnType');
+btnType.addEventListener('click', () => {
+  tripType = tripType === 'departures' ? 'arrivals' : 'departures';
+  btnType.textContent = tripType === 'departures' ? '↑ Départs' : '↓ Arrivées';
+  btnType.classList.toggle('active', tripType === 'arrivals');
+  document.querySelector('.legend-title').textContent =
+    tripType === 'departures' ? 'Densité des départs' : 'Densité des arrivées';
+  loadData(datePicker.value);
 });
 
 const btnWeek = document.getElementById('btnWeek');

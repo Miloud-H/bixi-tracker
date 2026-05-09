@@ -1,7 +1,10 @@
-let activeDays = 30;
-let activeCity = 'all';
-let comparing  = false;
-let chart = null;
+let activeDays   = 30;
+let activeCity   = 'all';
+let comparing    = false;
+let weekdayMode  = false;
+let currentData  = [];
+let chart        = null;
+let weekdayChart = null;
 
 function toYMD(date) {
   return date.toISOString().split('T')[0];
@@ -24,11 +27,16 @@ async function load() {
   try {
     const [current, previous] = await Promise.all([
       fetchHistory({ days: activeDays, city: activeCity }),
-      comparing && activeDays > 0
+      comparing && activeDays > 0 && !weekdayMode
         ? fetchHistory({ ...compareDateRange(activeDays), city: activeCity })
         : Promise.resolve(null),
     ]);
-    render(current, previous);
+    currentData = current;
+    if (weekdayMode) {
+      renderWeekday(current);
+    } else {
+      render(current, previous);
+    }
   } catch {
     document.getElementById('loader').style.display = 'none';
   }
@@ -179,6 +187,70 @@ function alignTo(data, length) {
   return counts.slice(-length);
 }
 
+// ── Jour de semaine ──
+
+const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+function aggregateByWeekday(data) {
+  const sums  = new Array(7).fill(0);
+  const cnts  = new Array(7).fill(0);
+  for (const d of data) {
+    const dow = new Date(d.date + 'T12:00:00').getDay(); // 0=Dim
+    const idx = (dow + 6) % 7;                           // 0=Lun
+    sums[idx] += d.count;
+    cnts[idx]++;
+  }
+  return sums.map((s, i) => cnts[i] > 0 ? Math.round(s / cnts[i]) : 0);
+}
+
+function renderWeekday(data) {
+  const avgs = aggregateByWeekday(data);
+  const max  = Math.max(...avgs, 1);
+
+  if (weekdayChart) weekdayChart.destroy();
+  if (chart) { chart.destroy(); chart = null; }
+
+  weekdayChart = new Chart(document.getElementById('historyChart'), {
+    type: 'bar',
+    data: {
+      labels: WEEKDAYS,
+      datasets: [{
+        label: 'Moy. trajets / jour',
+        data: avgs,
+        backgroundColor: avgs.map(v => `rgba(167,139,250,${0.3 + 0.6 * v / max})`),
+        borderColor: 'rgba(167,139,250,0.85)',
+        borderWidth: 1,
+        borderRadius: 5,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#9aa3b8', font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: 'rgba(14,17,23,0.95)',
+          titleColor: '#e8eaf0',
+          bodyColor: '#9aa3b8',
+          borderColor: '#2a3348',
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.raw.toLocaleString('fr-CA')} trajets en moy.` },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#9aa3b8', font: { size: 13, weight: '500' } }, grid: { color: '#1a2030' } },
+        y: {
+          ticks: { color: '#5a6480', font: { size: 10 }, callback: v => v.toLocaleString('fr-CA') },
+          grid: { color: '#1a2030' },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+
+  document.getElementById('loader').style.display = 'none';
+}
+
 // ── Contrôles période ──
 document.querySelectorAll('[data-days]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -203,7 +275,19 @@ document.querySelectorAll('[data-city]').forEach(btn => {
 document.getElementById('btnCompare').addEventListener('click', () => {
   comparing = !comparing;
   document.getElementById('btnCompare').classList.toggle('active', comparing);
-  load();
+  if (!weekdayMode) load();
+});
+
+// ── Par jour de semaine ──
+document.getElementById('btnWeekday').addEventListener('click', () => {
+  weekdayMode = !weekdayMode;
+  document.getElementById('btnWeekday').classList.toggle('active', weekdayMode);
+  if (weekdayMode) {
+    renderWeekday(currentData);
+  } else {
+    if (weekdayChart) { weekdayChart.destroy(); weekdayChart = null; }
+    load();
+  }
 });
 
 // ── Thème ──

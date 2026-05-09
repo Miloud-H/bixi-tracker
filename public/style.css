@@ -428,6 +428,30 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
 #chartPanel.open { display: block; }
 #chartPanel canvas { width: 100% !important; height: 110px !important; }
 
+.chart-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.chart-tab {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chart-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* ── Top stations ── */
 #statsPanel { margin-top: 2px; }
 .stat-row {

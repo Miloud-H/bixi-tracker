@@ -88,8 +88,11 @@ pub async fn get_heatmap(
     let date_str = params
         .date
         .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
-    let is_week = params.week.unwrap_or(0) == 1;
-    let cache_key = if is_week { format!("{date_str}:week") } else { date_str.clone() };
+    let is_week   = params.week.unwrap_or(0) == 1;
+    let is_arrivals = params.trip_type.as_deref() == Some("arrivals");
+    let kind      = if is_arrivals { "arrivals" } else { "departures" };
+    let period    = if is_week { "week" } else { "day" };
+    let cache_key = format!("{date_str}:{kind}:{period}");
 
     if let Some(cached) = state.heat_cache.get(&cache_key) {
         return Ok(Json(cached));
@@ -111,7 +114,16 @@ pub async fn get_heatmap(
     let conn = state.pool.get()
         .map_err(|e| { eprintln!("DB pool error in get_heatmap: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
-    let mut stmt = conn.prepare(
+    let sql = if is_arrivals {
+        "SELECT ROUND(end_lat, 3), ROUND(end_lon, 3),
+                CAST(strftime('%H', datetime(end_time, '-4 hours')) AS INTEGER),
+                COUNT(*) as volume
+         FROM trips
+         WHERE end_time >= ?1 AND end_time <= ?2
+           AND distance > 100
+         GROUP BY 1, 2, 3
+         ORDER BY volume DESC"
+    } else {
         "SELECT ROUND(start_lat, 3), ROUND(start_lon, 3),
                 CAST(strftime('%H', datetime(start_time, '-4 hours')) AS INTEGER),
                 COUNT(*) as volume
@@ -119,8 +131,11 @@ pub async fn get_heatmap(
          WHERE end_time >= ?1 AND end_time <= ?2
            AND distance > 100
          GROUP BY 1, 2, 3
-         ORDER BY volume DESC",
-    ).map_err(|e| { eprintln!("DB prepare error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+         ORDER BY volume DESC"
+    };
+
+    let mut stmt = conn.prepare(sql)
+        .map_err(|e| { eprintln!("DB prepare error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
     let rows = stmt.query_map([&start_utc, &end_utc], |row| {
         Ok(HeatPoint {

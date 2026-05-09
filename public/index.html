@@ -73,7 +73,12 @@
       </div>
 
       <div id="chartPanel">
+        <div class="chart-tabs">
+          <button class="chart-tab active" data-chart="hourly">Par heure</button>
+          <button class="chart-tab" data-chart="duration">Durées</button>
+        </div>
         <canvas id="dailyChart"></canvas>
+        <canvas id="durationChart" style="display:none"></canvas>
       </div>
     </section>
 

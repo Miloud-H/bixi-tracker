@@ -96,8 +96,9 @@ pub struct HeatPoint {
 
 #[derive(Deserialize)]
 pub struct HeatQuery {
-    pub date: Option<String>,
-    pub week: Option<u8>,  // 1 = moyenne 7 jours
+    pub date:      Option<String>,
+    pub week:      Option<u8>,    // 1 = 7 jours
+    pub trip_type: Option<String>, // "departures" (défaut) ou "arrivals"
 }
 
 #[derive(Serialize, Clone)]

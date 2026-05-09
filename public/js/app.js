@@ -5,7 +5,8 @@ import {
   initTheme, toggleTheme,
   showAlert, updateStats, updateSliderLabel, updateTopStations,
   updateDistLabel, updateActiveCount, updateTripCountInline, setSliderDisabled,
-  drawHistogram, drawDailyChart, drawStationHourChart,
+  drawHistogram, drawDailyChart, destroyDailyChart, drawStationHourChart,
+  drawDurationChart, destroyDurationChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
   setPlayingState, TimelinePlayer,
 } from "./ui.js";
@@ -24,6 +25,7 @@ class App {
     this.lastTripCount = 0;
     this.theme        = initTheme();
     this.chartOpen    = false;
+    this.chartTab     = "hourly";
     this.activeSearch = "";
     this.activeCity   = "montreal"; // ville sélectionnée
 
@@ -96,13 +98,28 @@ class App {
       const panel = document.getElementById("chartPanel");
       panel.classList.toggle("open", this.chartOpen);
       document.getElementById("btnChart").textContent = this.chartOpen ? "📊 Fermer" : "📊 Courbe";
-      if (this.chartOpen) drawDailyChart(this.allTrips);
+      if (this.chartOpen) this._drawActiveChart();
+    });
+
+    document.querySelectorAll(".chart-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".chart-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        this.chartTab = tab.dataset.chart;
+        document.getElementById("dailyChart").style.display    = this.chartTab === "hourly"   ? "" : "none";
+        document.getElementById("durationChart").style.display = this.chartTab === "duration" ? "" : "none";
+        this._drawActiveChart();
+      });
     });
 
     document.getElementById("themeToggle").addEventListener("click", () => {
       this.theme = toggleTheme(this.theme);
       drawHistogram(this.histCanvas, this.filteredTrips());
-      if (this.chartOpen) drawDailyChart(this.filteredTrips());
+      if (this.chartOpen) {
+        destroyDailyChart();
+        destroyDurationChart();
+        this._drawActiveChart();
+      }
     });
 
     this.map.on("popupclose", () => this.resetStyles());
@@ -178,7 +195,7 @@ class App {
       this.allTrips = trips;
 
       drawHistogram(this.histCanvas, this.filteredTrips());
-      if (this.chartOpen) drawDailyChart(this.filteredTrips());
+      if (this.chartOpen) this._drawActiveChart();
       this.render();
     } catch (e) {
       console.error("Failed to load trips:", e);
@@ -210,6 +227,14 @@ class App {
     updateTopStations(visible, this.stations);
 
     if (this.activeSearch) this._applyBikeHighlight(this.activeSearch);
+  }
+
+  _drawActiveChart() {
+    if (this.chartTab === "hourly") {
+      drawDailyChart(this.filteredTrips());
+    } else {
+      drawDurationChart(document.getElementById("durationChart"), this.filteredTrips());
+    }
   }
 
   // --- Public ---
