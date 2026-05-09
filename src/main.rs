@@ -51,6 +51,7 @@ async fn main() {
         .route("/api/flows",   get(routes::get_flows))
         .route("/api/heatmap", get(routes::get_heatmap))
         .route("/api/zones",   get(routes::get_zones))
+        .route("/api/history", get(routes::get_history))
         .with_state(state)
         .fallback_service(ServeDir::new("public"))
         .layer(CorsLayer::permissive());

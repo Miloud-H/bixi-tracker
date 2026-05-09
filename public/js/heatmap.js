@@ -13,6 +13,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 let allPoints  = [];
 let heatLayer  = null;
 let activeCity = 'montreal';
+let weekMode   = false;
 let playInterval = null;
 
 const slider = document.getElementById('hourSlider');
@@ -31,7 +32,8 @@ function render() {
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 
   if (pts.length === 0) {
-    document.getElementById('statsDisplay').innerHTML = `Aucun départ à <b>${hour}h</b>`;
+    document.getElementById('statsDisplay').innerHTML =
+      weekMode ? `Aucun départ à <b>${hour}h</b> (7 jours)` : `Aucun départ à <b>${hour}h</b>`;
     return;
   }
 
@@ -48,14 +50,18 @@ function render() {
   ).addTo(map);
 
   const total = pts.reduce((s, p) => s + p.volume, 0);
-  document.getElementById('statsDisplay').innerHTML =
-    `<b>${total}</b> départs à <b>${hour}h</b> — <b>${pts.length}</b> zones actives`;
+  document.getElementById('statsDisplay').innerHTML = weekMode
+    ? `<b>${total}</b> départs à <b>${hour}h</b> sur 7 jours — <b>${pts.length}</b> zones`
+    : `<b>${total}</b> départs à <b>${hour}h</b> — <b>${pts.length}</b> zones actives`;
 }
 
 async function loadData(date) {
   document.getElementById('loader').style.display = 'flex';
   try {
-    allPoints = await fetch(`/api/heatmap?date=${date}`).then(r => r.json());
+    const url = weekMode
+      ? `/api/heatmap?date=${date}&week=1`
+      : `/api/heatmap?date=${date}`;
+    allPoints = await fetch(url).then(r => r.json());
     render();
   } catch {
     document.getElementById('statsDisplay').textContent = 'Erreur de chargement';
@@ -81,6 +87,14 @@ document.querySelectorAll('.city-btn').forEach(btn => {
     map.flyTo(city.center, city.zoom, { duration: 0.8 });
     render();
   });
+});
+
+const btnWeek = document.getElementById('btnWeek');
+btnWeek.addEventListener('click', () => {
+  weekMode = !weekMode;
+  btnWeek.classList.toggle('active', weekMode);
+  btnWeek.textContent = weekMode ? '📅 Jour' : '📅 Semaine';
+  loadData(datePicker.value);
 });
 
 const btnPlay = document.getElementById('btnPlay');

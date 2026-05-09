@@ -3,10 +3,13 @@ use std::collections::HashMap;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use chrono_tz::America::Montreal;
 
-use crate::models::{ActiveStats, Flow, FlowQuery, HeatPoint, HeatQuery, Trip, TripQuery, Zone};
+use crate::models::{
+    ActiveStats, DayStats, Flow, FlowQuery, HeatPoint, HeatQuery,
+    HistoryQuery, Trip, TripQuery, Zone, ZoneQuery,
+};
 use crate::AppState;
 
 // --- Trips ---
@@ -57,9 +60,7 @@ pub async fn get_trips(
 
 // --- Active ---
 
-pub async fn get_active(
-    State(state): State<AppState>,
-) -> Json<ActiveStats> {
+pub async fn get_active(State(state): State<AppState>) -> Json<ActiveStats> {
     let count = state.in_flight.read().map(|g| g.len()).unwrap_or(0);
     Json(ActiveStats {
         active_count: count,
@@ -69,11 +70,11 @@ pub async fn get_active(
 
 // --- Zones ---
 
-pub async fn get_zones() -> Json<Vec<Zone>> {
+pub async fn get_zones(Query(params): Query<ZoneQuery>) -> Json<Vec<Zone>> {
     Json(
-        crate::zones::ZONES
-            .iter()
-            .map(|(name, lat, lon)| Zone { name, lat: *lat, lon: *lon })
+        crate::zones::ZONES.iter()
+            .filter(|(_, _, _, c)| params.city.as_deref().map_or(true, |city| *c == city))
+            .map(|(name, lat, lon, city)| Zone { name, lat: *lat, lon: *lon, city })
             .collect(),
     )
 }
@@ -87,16 +88,25 @@ pub async fn get_heatmap(
     let date_str = params
         .date
         .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
+    let is_week = params.week.unwrap_or(0) == 1;
+    let cache_key = if is_week { format!("{date_str}:week") } else { date_str.clone() };
 
-    if let Some(cached) = state.heat_cache.get(&date_str) {
+    if let Some(cached) = state.heat_cache.get(&cache_key) {
         return Ok(Json(cached));
     }
 
-    let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") else {
+    let Ok(end_date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") else {
         return Ok(Json(vec![]));
     };
 
-    let (start_utc, end_utc) = day_bounds_utc(date);
+    let (start_utc, end_utc) = if is_week {
+        let start_date = end_date - Duration::days(6);
+        let (s, _) = day_bounds_utc(start_date);
+        let (_, e) = day_bounds_utc(end_date);
+        (s, e)
+    } else {
+        day_bounds_utc(end_date)
+    };
 
     let conn = state.pool.get()
         .map_err(|e| { eprintln!("DB pool error in get_heatmap: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
@@ -122,7 +132,7 @@ pub async fn get_heatmap(
     }).map_err(|e| { eprintln!("DB query error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
     let points: Vec<HeatPoint> = rows.filter_map(|r| r.ok()).collect();
-    state.heat_cache.set(date_str, points.clone());
+    state.heat_cache.set(cache_key, points.clone());
     Ok(Json(points))
 }
 
@@ -135,8 +145,10 @@ pub async fn get_flows(
     let date_str = params
         .date
         .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
+    let city = params.city.as_deref().unwrap_or("montreal").to_string();
+    let cache_key = format!("{date_str}:{city}");
 
-    if let Some(cached) = state.flow_cache.get(&date_str) {
+    if let Some(cached) = state.flow_cache.get(&cache_key) {
         return Ok(Json(cached));
     }
 
@@ -167,8 +179,8 @@ pub async fn get_flows(
 
     let rows = stmt.query_map([&start_utc, &end_utc], |row| {
         Ok(RawTrip {
-            start_lat:    row.get(0)?, start_lon:    row.get(1)?,
-            end_lat:      row.get(2)?, end_lon:      row.get(3)?,
+            start_lat:    row.get(0)?, start_lon: row.get(1)?,
+            end_lat:      row.get(2)?, end_lon:   row.get(3)?,
             distance:     row.get(4)?,
             hour:         row.get::<_, i64>(5)? as u8,
             duration_min: row.get(6)?,
@@ -181,8 +193,12 @@ pub async fn get_flows(
     let mut agg: HashMap<FlowKey, (i64, f64, f64)> = HashMap::new();
 
     for trip in &raw_trips {
-        let Some(orig) = crate::zones::snap_nearest(trip.start_lat, trip.start_lon) else { continue };
-        let Some(dest) = crate::zones::snap_nearest(trip.end_lat,   trip.end_lon)   else { continue };
+        // Filtre par ville via longitude
+        let trip_city = if trip.start_lon < -72.5 { "montreal" } else { "sherbrooke" };
+        if trip_city != city { continue; }
+
+        let Some(orig) = crate::zones::snap_nearest_for_city(trip.start_lat, trip.start_lon, &city) else { continue };
+        let Some(dest) = crate::zones::snap_nearest_for_city(trip.end_lat,   trip.end_lon,   &city) else { continue };
         if orig == dest { continue; }
 
         let entry = agg
@@ -197,14 +213,56 @@ pub async fn get_flows(
         .into_iter()
         .map(|((origin, destination, hour), (count, total_dist, total_dur))| Flow {
             origin, destination, hour, count,
-            avg_distance:    total_dist / count as f64,
-            avg_duration_min: total_dur / count as f64,
+            avg_distance:     total_dist / count as f64,
+            avg_duration_min: total_dur  / count as f64,
         })
         .filter(|f| f.count >= 2)
         .collect();
 
-    state.flow_cache.set(date_str, flows.clone());
+    state.flow_cache.set(cache_key, flows.clone());
     Ok(Json(flows))
+}
+
+// --- Historique ---
+
+pub async fn get_history(
+    State(state): State<AppState>,
+    Query(params): Query<HistoryQuery>,
+) -> Result<Json<Vec<DayStats>>, StatusCode> {
+    let days = params.days.unwrap_or(30);
+    let city = params.city.as_deref().unwrap_or("all");
+
+    let start_utc = if days <= 0 {
+        "2000-01-01T00:00:00+00:00".to_string()
+    } else {
+        (Utc::now() - Duration::days(days)).to_rfc3339()
+    };
+
+    let conn = state.pool.get()
+        .map_err(|e| { eprintln!("DB pool error in get_history: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let city_filter = match city {
+        "montreal"   => " AND start_lon < -72.5",
+        "sherbrooke" => " AND start_lon >= -72.5",
+        _            => "",
+    };
+
+    let sql = format!(
+        "SELECT strftime('%Y-%m-%d', datetime(end_time, '-4 hours')) as day, COUNT(*) as count
+         FROM trips
+         WHERE end_time >= ?1{city_filter}
+         GROUP BY day
+         ORDER BY day ASC"
+    );
+
+    let mut stmt = conn.prepare(&sql)
+        .map_err(|e| { eprintln!("DB prepare error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let rows = stmt.query_map([&start_utc], |row| {
+        Ok(DayStats { date: row.get(0)?, count: row.get(1)? })
+    }).map_err(|e| { eprintln!("DB query error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Json(rows.filter_map(|r| r.ok()).collect()))
 }
 
 // --- Helpers ---
@@ -222,7 +280,6 @@ fn day_bounds_utc(date: NaiveDate) -> (String, String) {
 }
 
 fn assign_group_ids(trips: &mut Vec<Trip>) {
-    use std::collections::HashMap;
     type Signature = (String, String, i64);
 
     let mut counts:    HashMap<Signature, i32> = HashMap::new();

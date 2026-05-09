@@ -76,21 +76,28 @@ pub struct Zone {
     pub name: &'static str,
     pub lat:  f64,
     pub lon:  f64,
+    pub city: &'static str,
+}
+
+#[derive(Deserialize)]
+pub struct ZoneQuery {
+    pub city: Option<String>,
 }
 
 // --- Heatmap / Atlas types ---
 
 #[derive(Serialize, Clone)]
 pub struct HeatPoint {
-    pub lat: f64,
-    pub lon: f64,
-    pub hour: u8,
+    pub lat:    f64,
+    pub lon:    f64,
+    pub hour:   u8,
     pub volume: i64,
 }
 
 #[derive(Deserialize)]
 pub struct HeatQuery {
     pub date: Option<String>,
+    pub week: Option<u8>,  // 1 = moyenne 7 jours
 }
 
 #[derive(Serialize, Clone)]
@@ -106,4 +113,19 @@ pub struct Flow {
 #[derive(Deserialize)]
 pub struct FlowQuery {
     pub date: Option<String>,
+    pub city: Option<String>,
+}
+
+// --- Historique ---
+
+#[derive(Serialize, Clone)]
+pub struct DayStats {
+    pub date:  String,
+    pub count: i64,
+}
+
+#[derive(Deserialize)]
+pub struct HistoryQuery {
+    pub days: Option<i64>,  // 0 = tout
+    pub city: Option<String>,
 }

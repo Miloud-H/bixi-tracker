@@ -21,6 +21,7 @@
   <div id="navLinks" style="position:fixed;top:16px;left:16px;display:flex;gap:8px;z-index:1000;">
     <a id="backLink" href="/">← Tracker</a>
     <a href="/heatmap.html">🌡 Chaleur</a>
+    <a href="/history.html">📈 Historique</a>
   </div>
   <button id="legendToggle">📋 Légende</button>
 
@@ -54,6 +55,10 @@
     <input type="range" id="hourSlider" min="0" max="23" value="8" step="1" />
     <div class="panel-stats" id="statsDisplay">Chargement…</div>
     <div class="panel-actions">
+      <div style="display:flex;gap:4px;">
+        <button class="panel-btn active" data-city="montreal">Montréal</button>
+        <button class="panel-btn" data-city="sherbrooke">Sherbrooke</button>
+      </div>
       <input type="date" id="datePicker" />
       <button class="panel-btn" id="btnPlay">▶ Lecture</button>
       <button class="panel-btn" id="btnReset">↺ Réinitialiser</button>

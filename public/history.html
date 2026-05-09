@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BIXI Historique</title>
+  <link rel="stylesheet" href="history.css" />
+</head>
+<body>
+
+  <div id="loader">
+    <div class="loader-row">
+      <div class="loader-dot"></div>
+      <div class="loader-dot"></div>
+      <div class="loader-dot"></div>
+    </div>
+    <div class="loader-label">Chargement de l'historique…</div>
+  </div>
+
+  <div id="navLinks">
+    <a class="nav-link" href="/">← Tracker</a>
+    <a class="nav-link" href="/atlas.html">🗺 Atlas</a>
+    <a class="nav-link" href="/heatmap.html">🌡 Chaleur</a>
+  </div>
+
+  <div id="main">
+    <h1>Historique — <span id="titlePeriod">30 derniers jours</span></h1>
+
+    <div id="controls">
+      <button class="ctrl-btn active" data-days="30">30 jours</button>
+      <button class="ctrl-btn" data-days="90">90 jours</button>
+      <button class="ctrl-btn" data-days="0">Tout</button>
+      <div class="ctrl-sep"></div>
+      <button class="ctrl-btn active" data-city="all">Toutes</button>
+      <button class="ctrl-btn" data-city="montreal">Montréal</button>
+      <button class="ctrl-btn" data-city="sherbrooke">Sherbrooke</button>
+    </div>
+
+    <div id="statsRow">
+      <div class="stat-pill">
+        <div class="stat-pill-label">Total trajets</div>
+        <div class="stat-pill-value" id="statTotal">—</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-pill-label">Moyenne / jour</div>
+        <div class="stat-pill-value" id="statAvg">—</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-pill-label">Meilleur jour</div>
+        <div class="stat-pill-value" id="statBest">—</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-pill-label">Jours actifs</div>
+        <div class="stat-pill-value" id="statDays">—</div>
+      </div>
+    </div>
+
+    <div id="chartWrap">
+      <canvas id="historyChart"></canvas>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script type="module" src="js/history.js"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  color: #e8eaf0;
+  font-family: 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Nav ── */
+#navLinks {
+  position: fixed; top: 16px; left: 16px;
+  display: flex; gap: 8px;
+  z-index: 100;
+}
+.nav-link {
+  background: rgba(14, 17, 23, 0.92);
+  border: 1px solid #2a3348;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #9aa3b8;
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.nav-link:hover { color: #a78bfa; border-color: #a78bfa; }
+
+/* ── Contenu principal ── */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 80px 24px 32px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 20px;
+}
+h1 span { color: #a78bfa; }
+
+/* ── Barre de contrôles ── */
+#controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.ctrl-btn {
+  background: #1a2030;
+  border: 1px solid #2a3348;
+  color: #9aa3b8;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.ctrl-btn:hover { border-color: #a78bfa; color: #a78bfa; }
+.ctrl-btn.active {
+  background: #a78bfa;
+  border-color: #a78bfa;
+  color: #000;
+  font-weight: 600;
+}
+
+.ctrl-sep {
+  width: 1px; height: 20px;
+  background: #2a3348;
+  margin: 0 4px;
+}
+
+/* ── Stats pills ── */
+#statsRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.stat-pill {
+  background: rgba(14, 17, 23, 0.92);
+  border: 1px solid #2a3348;
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-width: 120px;
+}
+.stat-pill-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5a6480;
+  margin-bottom: 4px;
+}
+.stat-pill-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.stat-pill-value span { color: #a78bfa; font-size: 13px; font-weight: 400; }
+
+/* ── Graphique ── */
+#chartWrap {
+  background: rgba(14, 17, 23, 0.7);
+  border: 1px solid #2a3348;
+  border-radius: 14px;
+  padding: 20px;
+  flex: 1;
+  min-height: 320px;
+  position: relative;
+}
+
+#historyChart { width: 100% !important; }
+
+/* ── Loader ── */
+#loader {
+  position: fixed; inset: 0;
+  background: #0d1117;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  flex-direction: column;
+  gap: 12px;
+}
+.loader-row { display: flex; gap: 8px; }
+.loader-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #a78bfa;
+  animation: blink 1.2s ease-in-out infinite;
+}
+.loader-dot:nth-child(2) { animation-delay: 0.2s; }
+.loader-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100% { opacity:0.2 } 40% { opacity:1 } }
+.loader-label { color: #5a6480; font-size: 13px; }
+
+@media (max-width: 640px) {
+  #main { padding: 72px 14px 24px; }
+  #navLinks { top: 12px; left: 12px; }
+  .nav-link { font-size: 11px; padding: 8px 10px; }
+  h1 { font-size: 18px; }
+  .stat-pill-value { font-size: 18px; }
+}

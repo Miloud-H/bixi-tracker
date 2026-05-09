@@ -1,19 +1,34 @@
 const zonesRaw = await fetch('/api/zones').then(r => r.json());
-const ZONES = Object.fromEntries(zonesRaw.map(z => [z.name, [z.lat, z.lon]]));
+
+const CITY_CONFIG = {
+  montreal:   { center: [45.508, -73.587], zoom: 13 },
+  sherbrooke: { center: [45.404, -71.893], zoom: 13 },
+};
+
+let activeCity = 'montreal';
+
+function buildZones(city) {
+  return Object.fromEntries(
+    zonesRaw.filter(z => z.city === city).map(z => [z.name, [z.lat, z.lon]])
+  );
+}
+
+let ZONES = buildZones('montreal');
 
 function zoneColor(name) {
-  if (name.startsWith('Transit'))  return '#00d2ff';
-  if (name.startsWith('Edu'))      return '#bb86fc';
-  if (name.startsWith('Res'))      return '#69f0ae';
+  if (name.startsWith('Sherbrooke')) return '#ff9800';
+  if (name.startsWith('Transit'))    return '#00d2ff';
+  if (name.startsWith('Edu'))        return '#bb86fc';
+  if (name.startsWith('Res'))        return '#69f0ae';
   if (name.startsWith('Comm') || name.startsWith('Affaires')) return '#ffd740';
-  if (name.startsWith('Nuit'))     return '#ff4081';
-  if (name.startsWith('Sante'))    return '#ff5252';
-  if (name.startsWith('Loisir'))   return '#ffff00';
+  if (name.startsWith('Nuit'))       return '#ff4081';
+  if (name.startsWith('Sante'))      return '#ff5252';
+  if (name.startsWith('Loisir'))     return '#ffff00';
   return '#ffffff';
 }
 
 function zoneLabel(name) {
-  return name.replace(/_/g, ' ');
+  return name.replace(/^Sherbrooke_/, '').replace(/_/g, ' ');
 }
 
 const map = L.map('map', { zoomControl: false }).setView([45.508, -73.587], 13);
@@ -28,26 +43,31 @@ let activeLines = [];
 let selectedZone = null;
 let playing = false;
 let playInterval = null;
-const markers = {};
+let markers = {};
 
-for (const [name, latlng] of Object.entries(ZONES)) {
-  const m = L.circleMarker(latlng, {
-    radius: 5,
-    fillColor: zoneColor(name),
-    color: '#fff',
-    weight: 0,
-    fillOpacity: 0.25,
-  }).addTo(map);
+function buildMarkers() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
 
-  m.bindTooltip(zoneLabel(name), { permanent: false, direction: 'top' });
+  for (const [name, latlng] of Object.entries(ZONES)) {
+    const m = L.circleMarker(latlng, {
+      radius: 5,
+      fillColor: zoneColor(name),
+      color: '#fff',
+      weight: 0,
+      fillOpacity: 0.25,
+    }).addTo(map);
 
-  m.on('click', (e) => {
-    L.DomEvent.stopPropagation(e);
-    selectedZone = selectedZone === name ? null : name;
-    render(currentHour());
-  });
+    m.bindTooltip(zoneLabel(name), { permanent: false, direction: 'top' });
 
-  markers[name] = m;
+    m.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      selectedZone = selectedZone === name ? null : name;
+      render(currentHour());
+    });
+
+    markers[name] = m;
+  }
 }
 
 map.on('click', () => {
@@ -62,7 +82,7 @@ datePicker.value = new Date(now.getTime() - offset).toISOString().split('T')[0];
 async function loadFlows() {
   document.getElementById('loader').style.display = 'flex';
   try {
-    const res = await fetch(`/api/flows?date=${datePicker.value}`);
+    const res = await fetch(`/api/flows?date=${datePicker.value}&city=${activeCity}`);
     allFlows = await res.json();
   } catch (e) {
     console.error('Failed to load flows', e);
@@ -90,7 +110,6 @@ function render(hour) {
     zoneVol[f.destination] = (zoneVol[f.destination] || 0) + f.count;
   });
 
-  const maxVol = Math.max(...Object.values(zoneVol), 1);
   let totalTransfers = 0;
 
   hourFlows.forEach(f => {
@@ -202,4 +221,19 @@ document.getElementById('legendToggle').addEventListener('click', () => {
   document.getElementById('legend').classList.toggle('open');
 });
 
+document.querySelectorAll('[data-city]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-city]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeCity = btn.dataset.city;
+    ZONES = buildZones(activeCity);
+    selectedZone = null;
+    buildMarkers();
+    const cfg = CITY_CONFIG[activeCity];
+    map.flyTo(cfg.center, cfg.zoom, { duration: 0.8 });
+    loadFlows();
+  });
+});
+
+buildMarkers();
 loadFlows();
