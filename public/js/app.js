@@ -5,7 +5,7 @@ import {
   initTheme, toggleTheme,
   showAlert, updateStats, updateSliderLabel, updateTopStations,
   updateDistLabel, updateActiveCount, updateTripCountInline, setSliderDisabled,
-  drawHistogram, drawDailyChart,
+  drawHistogram, drawDailyChart, drawStationHourChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
   setPlayingState, TimelinePlayer,
 } from "./ui.js";
@@ -102,6 +102,9 @@ class App {
     });
 
     this.map.on("popupclose", () => this.resetStyles());
+    this.map.on("click", (e) => {
+      if (!e.originalEvent.defaultPrevented) this.closeStationCard();
+    });
 
     // Sélecteur de ville
     document.querySelectorAll(".city-btn").forEach(btn => {
@@ -121,7 +124,8 @@ class App {
   async init() {
     const json = await fetch(GBFS_STATIONS_URL).then((r) => r.json());
     this.stations = json.data.stations;
-    bindClickPopup(this.map, () => this.allTrips, this.stations);
+    bindClickPopup(this.map, () => this.filteredTrips(), this.stations,
+      (station) => this.showStationCard(station));
     await this.load();
     await this.refreshActive();
 
@@ -260,6 +264,41 @@ class App {
     if (this.focusLayer) { this.map.removeLayer(this.focusLayer); this.focusLayer = null; }
     document.getElementById("nearbyResults").innerHTML = "";
     document.getElementById("bikeResults").innerHTML   = "";
+  }
+
+  showStationCard(station) {
+    const arrivals   = this.allTrips.filter(t =>
+      haversineDistance(t.end_lat,   t.end_lon,   station.lat, station.lon) <= 60);
+    const departures = this.allTrips.filter(t =>
+      haversineDistance(t.start_lat, t.start_lon, station.lat, station.lon) <= 60);
+
+    const byHour = new Array(24).fill(0);
+    arrivals.forEach(t => { byHour[new Date(t.end_time).getHours()]++; });
+
+    const originCount = {};
+    arrivals.forEach(t => {
+      const s = findNearestStation(this.stations, t.start_lat, t.start_lon);
+      const name = s ? s.name : "Hors station";
+      originCount[name] = (originCount[name] || 0) + 1;
+    });
+    const topOrigins = Object.entries(originCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    document.getElementById("scName").textContent       = station.name;
+    document.getElementById("scArrivals").textContent   = arrivals.length;
+    document.getElementById("scDepartures").textContent = departures.length;
+    document.getElementById("scOrigins").innerHTML      = topOrigins.length
+      ? topOrigins.map(([n, c]) =>
+          `<div class="sc-origin"><span class="sc-origin-name">${n}</span><span class="sc-origin-cnt">${c}</span></div>`
+        ).join("")
+      : `<div class="sc-origin-empty">Aucune donnée</div>`;
+
+    const card = document.getElementById("stationCard");
+    card.classList.add("sc-visible");
+    drawStationHourChart(document.getElementById("scChart"), byHour);
+  }
+
+  closeStationCard() {
+    document.getElementById("stationCard").classList.remove("sc-visible");
   }
 
   reset() {

@@ -56,6 +56,44 @@ export function drawHistogram(canvas, allTrips) {
   });
 }
 
+// --- Station hour chart ---
+
+export function drawStationHourChart(canvas, byHour) {
+  if (!canvas) return;
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const ctx = canvas.getContext("2d");
+  const W = canvas.offsetWidth || 240;
+  const H = 52;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const max = Math.max(...byHour, 1);
+  const barW = W / 24;
+  const accent = isDark ? "#00e676" : "#2ecc71";
+
+  ctx.clearRect(0, 0, W, H);
+  byHour.forEach((count, i) => {
+    if (count === 0) return;
+    const barH = Math.max(2, (count / max) * (H - 14));
+    const grad = ctx.createLinearGradient(0, H - barH - 14, 0, H - 14);
+    grad.addColorStop(0, accent + "dd");
+    grad.addColorStop(1, accent + "33");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(i * barW + 1, H - 14 - barH, barW - 2, barH, 2);
+    ctx.fill();
+  });
+
+  // Heure labels every 6h
+  ctx.fillStyle = isDark ? "#5a6480" : "#aaa";
+  ctx.font = `${9 * devicePixelRatio / devicePixelRatio}px DM Mono, monospace`;
+  ctx.textAlign = "center";
+  [0, 6, 12, 18, 23].forEach(h => {
+    ctx.fillText(h + "h", (h + 0.5) * barW, H - 2);
+  });
+}
+
 // --- Daily chart ---
 
 let dailyChartInstance = null;

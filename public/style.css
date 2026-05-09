@@ -185,6 +185,7 @@ input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px co
 }
 input[type="range"] {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   height: 3px;
   background: transparent;
@@ -494,6 +495,81 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   background: var(--border);
   margin: 0 2px;
 }
+
+/* ── Fiche station ── */
+#stationCard {
+  position: fixed;
+  top: 60px; right: 16px;
+  width: 260px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-strong);
+  padding: 14px;
+  z-index: 1050;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  transition: background 0.3s, border-color 0.3s;
+}
+#stationCard.sc-visible { display: flex; }
+.sc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sc-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.sc-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  min-height: unset;
+}
+.sc-close:hover { color: var(--text-primary); }
+.sc-pills {
+  display: flex;
+  gap: 8px;
+}
+.sc-pill {
+  flex: 1;
+  background: var(--bg-item);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+}
+.sc-val  { display: block; font-size: 20px; font-weight: 700; color: var(--accent); }
+.sc-lbl  { font-size: 10px; color: var(--text-muted); }
+.sc-section-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+#scChart { width: 100%; }
+.sc-origin {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.sc-origin:last-child { border-bottom: none; }
+.sc-origin-name { color: var(--text-secondary); }
+.sc-origin-cnt  { font-weight: 600; color: var(--text-primary); }
+.sc-origin-empty { font-size: 11px; color: var(--text-muted); }
 
 /* ── Nav dans le panneau (mobile only) ── */
 #panelNav {

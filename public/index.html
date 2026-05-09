@@ -147,6 +147,21 @@
   <div id="alertBox"></div>
   <div id="map"></div>
 
+  <div id="stationCard">
+    <div class="sc-header">
+      <div class="sc-name" id="scName"></div>
+      <button class="sc-close" id="scClose" onclick="window.app.closeStationCard()">×</button>
+    </div>
+    <div class="sc-pills">
+      <div class="sc-pill"><span class="sc-val" id="scArrivals">0</span><span class="sc-lbl">arrivées</span></div>
+      <div class="sc-pill"><span class="sc-val" id="scDepartures">0</span><span class="sc-lbl">départs</span></div>
+    </div>
+    <div class="sc-section-lbl">Arrivées par heure</div>
+    <canvas id="scChart"></canvas>
+    <div class="sc-section-lbl">Top origines</div>
+    <div id="scOrigins"></div>
+  </div>
+
   <nav id="pageNav">
     <a href="/atlas.html">Atlas</a>
     <a href="/heatmap.html">Chaleur</a>

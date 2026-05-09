@@ -148,18 +148,20 @@ export function focusTrip(map, sl1, sl2, el1, el2) {
   return focusLayer;
 }
 
-export function bindClickPopup(map, getTrips, stations) {
+export function bindClickPopup(map, getTrips, stations, onStationClick) {
   map.on("click", (e) => {
     const { lat, lng } = e.latlng;
     const nearby = getTrips().filter(
       (t) => haversineDistance(lat, lng, t.end_lat, t.end_lon) <= SEARCH_RADIUS_METERS
     );
 
-    if (nearby.length === 0) {
-      L.popup()
-        .setLatLng(e.latlng)
-        .setContent(`Aucun trajet trouvé dans ${SEARCH_RADIUS_METERS} m`)
-        .openOn(map);
+    if (nearby.length === 0) return;
+
+    if (onStationClick) {
+      const station = findNearestStation(stations, lat, lng, 300) ||
+        { name: "Station inconnue", lat, lon: lng };
+      e.originalEvent.preventDefault();
+      onStationClick(station);
       return;
     }
 
