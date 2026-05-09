@@ -2,6 +2,9 @@
 /target/
 Cargo.lock
 
+# Claude Code internal state
+.claude/
+
 # Runtime state
 *.db
 *.db-shm
