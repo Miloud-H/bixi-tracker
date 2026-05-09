@@ -69,9 +69,18 @@ pub struct ActiveStats {
     pub last_updated: String,
 }
 
-// --- Heatmap / Atlas types ---
+// --- Zone Atlas ---
 
 #[derive(Serialize)]
+pub struct Zone {
+    pub name: &'static str,
+    pub lat:  f64,
+    pub lon:  f64,
+}
+
+// --- Heatmap / Atlas types ---
+
+#[derive(Serialize, Clone)]
 pub struct HeatPoint {
     pub lat: f64,
     pub lon: f64,
@@ -84,7 +93,7 @@ pub struct HeatQuery {
     pub date: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct Flow {
     pub origin: String,
     pub destination: String,

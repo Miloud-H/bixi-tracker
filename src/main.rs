@@ -1,7 +1,9 @@
+mod cache;
 mod db;
 mod models;
 mod routes;
 mod tracker;
+mod zones;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -12,7 +14,16 @@ use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
-use crate::models::InFlightBikes;
+use cache::ApiCache;
+use models::{Flow, HeatPoint, InFlightBikes};
+
+#[derive(Clone)]
+pub struct AppState {
+    pub pool:        db::DbPool,
+    pub in_flight:   InFlightBikes,
+    pub flow_cache:  Arc<ApiCache<Vec<Flow>>>,
+    pub heat_cache:  Arc<ApiCache<Vec<HeatPoint>>>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -21,17 +32,26 @@ async fn main() {
 
     let in_flight: InFlightBikes = Arc::new(RwLock::new(HashMap::new()));
 
-    let tracker_pool = pool.clone();
+    let tracker_pool      = pool.clone();
     let tracker_in_flight = in_flight.clone();
     tokio::spawn(async move {
         tracker::run(tracker_pool, tracker_in_flight).await;
     });
 
+    let state = AppState {
+        pool,
+        in_flight,
+        flow_cache: ApiCache::new(300),
+        heat_cache: ApiCache::new(300),
+    };
+
     let app = Router::new()
-        .route("/api/trips",  get(routes::get_trips).with_state(pool.clone()))
-        .route("/api/active", get(routes::get_active).with_state(in_flight))
-        .route("/api/flows",   get(routes::get_flows).with_state(pool.clone()))
-        .route("/api/heatmap", get(routes::get_heatmap).with_state(pool))
+        .route("/api/trips",   get(routes::get_trips))
+        .route("/api/active",  get(routes::get_active))
+        .route("/api/flows",   get(routes::get_flows))
+        .route("/api/heatmap", get(routes::get_heatmap))
+        .route("/api/zones",   get(routes::get_zones))
+        .with_state(state)
         .fallback_service(ServeDir::new("public"))
         .layer(CorsLayer::permissive());
 
