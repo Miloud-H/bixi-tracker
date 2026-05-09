@@ -19,11 +19,10 @@ function zoneColor(name) {
   if (name.startsWith('Sherbrooke')) return '#ff9800';
   if (name.startsWith('Transit'))    return '#00d2ff';
   if (name.startsWith('Edu'))        return '#bb86fc';
-  if (name.startsWith('Res'))        return '#69f0ae';
-  if (name.startsWith('Comm') || name.startsWith('Affaires')) return '#ffd740';
-  if (name.startsWith('Nuit'))       return '#ff4081';
   if (name.startsWith('Sante'))      return '#ff5252';
   if (name.startsWith('Loisir'))     return '#ffff00';
+  if (name.startsWith('Nuit'))       return '#ff4081';
+  if (name.startsWith('Res'))        return '#69f0ae';
   return '#ffffff';
 }
 
