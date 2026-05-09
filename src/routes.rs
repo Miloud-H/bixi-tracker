@@ -229,17 +229,7 @@ pub async fn get_history(
     State(state): State<AppState>,
     Query(params): Query<HistoryQuery>,
 ) -> Result<Json<Vec<DayStats>>, StatusCode> {
-    let days = params.days.unwrap_or(30);
     let city = params.city.as_deref().unwrap_or("all");
-
-    let start_utc = if days <= 0 {
-        "2000-01-01T00:00:00+00:00".to_string()
-    } else {
-        (Utc::now() - Duration::days(days)).to_rfc3339()
-    };
-
-    let conn = state.pool.get()
-        .map_err(|e| { eprintln!("DB pool error in get_history: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
     let city_filter = match city {
         "montreal"   => " AND start_lon < -72.5",
@@ -247,10 +237,27 @@ pub async fn get_history(
         _            => "",
     };
 
+    let (start_utc, end_clause) = if let (Some(from), Some(to)) = (&params.from, &params.to) {
+        let s = format!("{}T04:00:00+00:00", from);
+        let e = format!("{}T04:00:00+00:00", to);
+        (s, format!(" AND end_time < '{e}'"))
+    } else {
+        let days = params.days.unwrap_or(30);
+        let s = if days <= 0 {
+            "2000-01-01T00:00:00+00:00".to_string()
+        } else {
+            (Utc::now() - Duration::days(days)).to_rfc3339()
+        };
+        (s, String::new())
+    };
+
+    let conn = state.pool.get()
+        .map_err(|e| { eprintln!("DB pool error in get_history: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
     let sql = format!(
         "SELECT strftime('%Y-%m-%d', datetime(end_time, '-4 hours')) as day, COUNT(*) as count
          FROM trips
-         WHERE end_time >= ?1{city_filter}
+         WHERE end_time >= ?1{end_clause}{city_filter}
          GROUP BY day
          ORDER BY day ASC"
     );

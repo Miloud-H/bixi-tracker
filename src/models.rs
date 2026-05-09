@@ -128,4 +128,6 @@ pub struct DayStats {
 pub struct HistoryQuery {
     pub days: Option<i64>,  // 0 = tout
     pub city: Option<String>,
+    pub from: Option<String>,  // YYYY-MM-DD, prioritaire sur days
+    pub to:   Option<String>,  // YYYY-MM-DD exclusif
 }

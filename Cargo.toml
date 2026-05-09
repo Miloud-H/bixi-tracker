@@ -14,5 +14,5 @@ geo = "0.29"
 rusqlite = { version = "0.32", features = ["bundled"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.25"
-tower-http = { version = "0.6", features = ["fs", "cors"] }
+tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip"] }
 chrono-tz = "0.10.4"

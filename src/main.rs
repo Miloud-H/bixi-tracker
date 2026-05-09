@@ -11,6 +11,7 @@ use std::sync::{Arc, RwLock};
 
 use axum::{routing::get, Router};
 use tokio::net::TcpListener;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
@@ -54,6 +55,7 @@ async fn main() {
         .route("/api/history", get(routes::get_history))
         .with_state(state)
         .fallback_service(ServeDir::new("public"))
+        .layer(CompressionLayer::new())
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
