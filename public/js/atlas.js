@@ -34,9 +34,17 @@ function zoneLabel(name) {
 const map = L.map('map', { zoomControl: false }).setView([45.508, -73.587], 13);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap &copy; CARTO',
-}).addTo(map);
+const TILES = {
+  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+};
+let tileLayer = L.tileLayer(TILES.dark, { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+
+function setTiles(theme) {
+  const url = TILES[theme] || TILES.dark;
+  tileLayer.remove();
+  tileLayer = L.tileLayer(url, { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+}
 
 let allFlows    = [];
 let activeLines = [];
@@ -85,11 +93,14 @@ function applyTheme(t) {
   const btn = document.getElementById('themeToggle');
   if (btn) btn.textContent = t === 'dark' ? '☀ Clair' : '🌙 Sombre';
 }
-applyTheme(localStorage.getItem('bixi-theme') || 'light');
+const savedTheme = localStorage.getItem('bixi-theme') || 'light';
+applyTheme(savedTheme);
+setTiles(savedTheme);
 document.getElementById('themeToggle')?.addEventListener('click', () => {
   const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   localStorage.setItem('bixi-theme', next);
   applyTheme(next);
+  setTiles(next);
 });
 
 async function loadFlows() {
