@@ -68,3 +68,33 @@ pub struct ActiveStats {
     pub active_count: usize,
     pub last_updated: String,
 }
+
+// --- Heatmap / Atlas types ---
+
+#[derive(Serialize)]
+pub struct HeatPoint {
+    pub lat: f64,
+    pub lon: f64,
+    pub hour: u8,
+    pub volume: i64,
+}
+
+#[derive(Deserialize)]
+pub struct HeatQuery {
+    pub date: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct Flow {
+    pub origin: String,
+    pub destination: String,
+    pub hour: u8,
+    pub count: i64,
+    pub avg_distance: f64,
+    pub avg_duration_min: f64,
+}
+
+#[derive(Deserialize)]
+pub struct FlowQuery {
+    pub date: Option<String>,
+}

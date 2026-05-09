@@ -43,6 +43,11 @@ class App {
     this.bindEvents();
   }
 
+  filteredTrips() {
+    const f = CITIES[this.activeCity]?.filter ?? (() => true);
+    return this.allTrips.filter(f);
+  }
+
   updateRangeSliderPct(el) {
     const pct = ((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100;
     el.style.setProperty("--slider-pct", `${pct}%`);
@@ -92,8 +97,8 @@ class App {
 
     document.getElementById("themeToggle").addEventListener("click", () => {
       this.theme = toggleTheme(this.theme);
-      drawHistogram(this.histCanvas, this.allTrips);
-      if (this.chartOpen) drawDailyChart(this.allTrips);
+      drawHistogram(this.histCanvas, this.filteredTrips());
+      if (this.chartOpen) drawDailyChart(this.filteredTrips());
     });
 
     this.map.on("popupclose", () => this.resetStyles());
@@ -107,6 +112,8 @@ class App {
         const city = CITIES[this.activeCity];
         this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
         this.render();
+        drawHistogram(this.histCanvas, this.filteredTrips());
+        if (this.chartOpen) drawDailyChart(this.filteredTrips());
       });
     });
   }
@@ -162,8 +169,8 @@ class App {
       this.lastTripCount = trips.length;
       this.allTrips = trips;
 
-      drawHistogram(this.histCanvas, trips);
-      if (this.chartOpen) drawDailyChart(trips);
+      drawHistogram(this.histCanvas, this.filteredTrips());
+      if (this.chartOpen) drawDailyChart(this.filteredTrips());
       this.render();
     } catch (e) {
       console.error("Failed to load trips:", e);

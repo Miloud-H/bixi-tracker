@@ -6,7 +6,7 @@ use axum::Json;
 use chrono::{DateTime, NaiveDate, Utc, TimeZone};
 use chrono_tz::America::Montreal;
 
-use crate::models::{ActiveStats, Trip, TripQuery};
+use crate::models::{ActiveStats, Flow, FlowQuery, HeatPoint, HeatQuery, Trip, TripQuery};
 use crate::db::DbPool;
 
 pub async fn get_trips(
@@ -144,20 +144,7 @@ pub async fn get_active(
         last_updated: Utc::now().to_rfc3339(),
     })
 }
-// --- Flows endpoint ---
-
-#[derive(serde::Serialize)]
-pub struct HeatPoint {
-    pub lat: f64,
-    pub lon: f64,
-    pub hour: u8,
-    pub volume: i64,
-}
-
-#[derive(serde::Deserialize)]
-pub struct HeatQuery {
-    pub date: Option<String>,
-}
+// --- Heatmap endpoint ---
 
 pub async fn get_heatmap(
     State(pool): State<DbPool>,
@@ -207,20 +194,7 @@ pub async fn get_heatmap(
     Json(rows.filter_map(|r| r.ok()).collect())
 }
 
-#[derive(serde::Serialize)]
-pub struct Flow {
-    pub origin: String,
-    pub destination: String,
-    pub hour: u8,
-    pub count: i64,
-    pub avg_distance: f64,
-    pub avg_duration_min: f64,
-}
-
-#[derive(serde::Deserialize)]
-pub struct FlowQuery {
-    pub date: Option<String>,
-}
+// --- Flows endpoint ---
 
 pub async fn get_flows(
     State(pool): State<DbPool>,
