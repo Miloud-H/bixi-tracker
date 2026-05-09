@@ -268,8 +268,6 @@ export function updateActiveCount(count) {
 
 export function updateStats(visibleTrips, dayTotal = null) {
   document.getElementById("statCount").textContent = visibleTrips.length;
-  const totalKm = visibleTrips.reduce((sum, t) => sum + t.distance, 0) / 1000;
-  document.getElementById("statDist").textContent = totalKm.toFixed(1);
   const uniqueGroups = new Set(
     visibleTrips.filter((t) => t.group_id !== null).map((t) => t.group_id)
   );
