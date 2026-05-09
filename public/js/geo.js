@@ -9,6 +9,7 @@ export const CITIES = {
     center: [45.5017, -73.5673],
     zoom: 13,
     // Tout ce qui n'est pas Sherbrooke
+    // Tout ce qui n'est pas Sherbrooke
     filter: (trip) => trip.start_lon < -72.5,
   },
   sherbrooke: {

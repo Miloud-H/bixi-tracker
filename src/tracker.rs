@@ -277,7 +277,12 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                         for id in &returned {
                             flight.remove(id);
                         }
-                        flight.retain(|_, start| (now - *start).num_minutes() < 120);
+                        // Keep only bikes still absent from the feed and within the 2h window.
+                        // Without this, returned bikes linger until timeout inflating the count.
+                        flight.retain(|id, start| {
+                            disappeared_at.contains_key(id)
+                                && (now - *start).num_minutes() < 120
+                        });
                     }
 
                     let new_trips = insert_trips(&pool, &detected, &now.to_rfc3339());

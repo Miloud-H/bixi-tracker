@@ -311,7 +311,7 @@ pub async fn get_flows(
             avg_distance: total_dist / count as f64,
             avg_duration_min: total_dur / count as f64,
         })
-        .filter(|f| f.count >= 2) // Filtrer le bruit
+        .filter(|f| f.count >= 2)
         .collect();
 
     Json(flows)
