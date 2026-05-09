@@ -137,14 +137,40 @@ export function resetLayerStyles(layer) {
 }
 
 export function focusTrip(map, sl1, sl2, el1, el2) {
-  const line = L.polyline([[sl1, sl2], [el1, el2]], {
-    color: "red",
-    weight: 6,
-    opacity: 1,
-    dashArray: "10, 10",
+  const start = [sl1, sl2];
+  const end   = [el1, el2];
+
+  const line = L.polyline([start, end], {
+    color: "#64b5f6",
+    weight: 4,
+    opacity: 0.9,
+    dashArray: "8, 5",
   });
-  const focusLayer = L.layerGroup([line]).addTo(map);
-  map.fitBounds(L.latLngBounds([[sl1, sl2], [el1, el2]]).pad(0.2));
+
+  const p1  = map.project(start);
+  const p2  = map.project(end);
+  const mid = map.unproject(L.point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2));
+  const angle = (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
+  const arrow = L.marker(mid, {
+    icon: L.divIcon({
+      className: "",
+      html: `<div style="transform:rotate(${angle}deg);color:#64b5f6;font-size:22px;line-height:1;filter:drop-shadow(0 0 3px #000a);">➤</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    }),
+    interactive: false,
+  });
+
+  const startDot = L.circleMarker(start, {
+    radius: 9, fillColor: "#00e676", color: "#fff", weight: 2, fillOpacity: 1,
+  }).bindTooltip("Départ", { permanent: true, direction: "top", className: "focus-tip" });
+
+  const endDot = L.circleMarker(end, {
+    radius: 9, fillColor: "#ff5252", color: "#fff", weight: 2, fillOpacity: 1,
+  }).bindTooltip("Arrivée", { permanent: true, direction: "top", className: "focus-tip" });
+
+  const focusLayer = L.layerGroup([line, arrow, startDot, endDot]).addTo(map);
+  map.fitBounds(L.latLngBounds([start, end]).pad(0.3));
   return focusLayer;
 }
 

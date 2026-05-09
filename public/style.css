@@ -637,6 +637,18 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
 }
 
 .trip-arrow { font-size: 12px; pointer-events: none; }
+.focus-tip {
+  background: rgba(20, 24, 32, 0.85) !important;
+  border: none !important;
+  color: #e8eaf0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+  white-space: nowrap;
+}
+.focus-tip::before { display: none !important; }
 .leaflet-interactive { transition: stroke 0.2s, stroke-width 0.2s, opacity 0.2s; }
 [data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7); }
 
