@@ -37,7 +37,8 @@ class App {
 
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
-    this.datePicker.value = new Date(now.getTime() - offset).toISOString().split("T")[0];
+    const today = new Date(now.getTime() - offset).toISOString().split("T")[0];
+    this.datePicker.value = sessionStorage.getItem("bixi-date") || today;
     this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
 
     this.bindEvents();
@@ -70,7 +71,10 @@ class App {
       debouncedRender();
     });
 
-    this.datePicker.addEventListener("change", () => this.load());
+    this.datePicker.addEventListener("change", () => {
+      sessionStorage.setItem("bixi-date", this.datePicker.value);
+      this.load();
+    });
 
     this.showAllCheck.addEventListener("change", () => {
       setSliderDisabled(this.showAllCheck.checked);

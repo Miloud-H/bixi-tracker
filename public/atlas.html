@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BIXI Atlas — Flux de Montréal</title>
+  <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('bixi-theme')||'light');</script>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#141820" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -27,6 +28,7 @@
     <a id="backLink" href="/">← Tracker</a>
     <a href="/heatmap.html">🌡 Chaleur</a>
     <a href="/history.html">📈 Historique</a>
+    <button id="themeToggle" style="background:rgba(14,17,23,0.92);border:1px solid #2a3348;border-radius:8px;padding:8px 14px;font-size:12px;color:#9aa3b8;cursor:pointer;font-family:inherit;">🌙 Sombre</button>
   </div>
   <button id="legendToggle">📋 Légende</button>
 

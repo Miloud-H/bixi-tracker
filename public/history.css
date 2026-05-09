@@ -151,3 +151,17 @@ h1 span { color: #a78bfa; }
   h1 { font-size: 18px; }
   .stat-pill-value { font-size: 18px; }
 }
+
+/* ── Thème clair ── */
+[data-theme="light"] body { background: #f0f2f5; color: #1a1a1a; }
+[data-theme="light"] .nav-link { background: rgba(255,255,255,0.96); border-color: #d8dce6; color: #555; }
+[data-theme="light"] .nav-link:hover { color: #a78bfa; border-color: #a78bfa; }
+[data-theme="light"] h1 { color: #1a1a1a; }
+[data-theme="light"] .ctrl-btn { background: #f0f0f0; border-color: #d8dce6; color: #555; }
+[data-theme="light"] .ctrl-btn:hover { border-color: #a78bfa; color: #a78bfa; }
+[data-theme="light"] .ctrl-sep { background: #d8dce6; }
+[data-theme="light"] .stat-pill { background: rgba(255,255,255,0.96); border-color: #d8dce6; }
+[data-theme="light"] .stat-pill-value { color: #1a1a1a; }
+[data-theme="light"] .stat-pill-label { color: #888; }
+[data-theme="light"] #chartWrap { background: rgba(255,255,255,0.96); border-color: #d8dce6; }
+[data-theme="light"] #loader { background: #f0f2f5; }

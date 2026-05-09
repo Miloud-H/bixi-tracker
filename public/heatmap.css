@@ -232,3 +232,24 @@ body { background: #0d1117; color: #e8eaf0; font-family: 'Segoe UI', sans-serif;
   #hourSlider::-webkit-slider-thumb { width: 24px; height: 24px; }
   #datePicker { font-size: 16px; }
 }
+
+/* ── Thème clair ── */
+[data-theme="light"] body { background: #f0f2f5; color: #1a1a1a; }
+[data-theme="light"] .leaflet-tile { filter: none; }
+[data-theme="light"] #panel,
+[data-theme="light"] #legend { background: rgba(255,255,255,0.96); border-color: #d8dce6; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+[data-theme="light"] .panel-time { color: #1a1a1a; }
+[data-theme="light"] .panel-stats { color: #888; }
+[data-theme="light"] .panel-stats b { color: #333; }
+[data-theme="light"] .panel-btn { background: #f0f0f0; border-color: #d8dce6; color: #555; }
+[data-theme="light"] .panel-btn:hover, [data-theme="light"] .panel-btn.active { border-color: #ff5252; color: #ff5252; }
+[data-theme="light"] .panel-btn.playing { background: #ff5252; color: #fff; }
+[data-theme="light"] .city-btn { background: #f0f0f0; border-color: #d8dce6; color: #555; }
+[data-theme="light"] .city-btn.active { background: #ff5252; color: #fff; border-color: #ff5252; }
+[data-theme="light"] #datePicker { background: #fff; border-color: #d8dce6; color: #1a1a1a; }
+[data-theme="light"] .nav-link { background: rgba(255,255,255,0.96); border-color: #d8dce6; color: #555; }
+[data-theme="light"] .nav-link:hover { color: #ff5252; border-color: #ff5252; }
+[data-theme="light"] .legend-title { color: #888; }
+[data-theme="light"] .gradient-labels { color: #888; }
+[data-theme="light"] #loader { background: #f0f2f5; }
+[data-theme="light"] #hourSlider { background: linear-gradient(to right, #ff5252 0%, #ff5252 var(--pct,70%), #d0d4de var(--pct,70%)); }

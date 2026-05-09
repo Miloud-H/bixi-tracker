@@ -77,7 +77,20 @@ map.on('click', () => {
 const datePicker = document.getElementById('datePicker');
 const now = new Date();
 const offset = now.getTimezoneOffset() * 60000;
-datePicker.value = new Date(now.getTime() - offset).toISOString().split('T')[0];
+const today = new Date(now.getTime() - offset).toISOString().split('T')[0];
+datePicker.value = sessionStorage.getItem('bixi-date') || today;
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = t === 'dark' ? '☀ Clair' : '🌙 Sombre';
+}
+applyTheme(localStorage.getItem('bixi-theme') || 'light');
+document.getElementById('themeToggle')?.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('bixi-theme', next);
+  applyTheme(next);
+});
 
 async function loadFlows() {
   document.getElementById('loader').style.display = 'flex';
@@ -92,7 +105,10 @@ async function loadFlows() {
   render(currentHour());
 }
 
-datePicker.addEventListener('change', loadFlows);
+datePicker.addEventListener('change', () => {
+  sessionStorage.setItem('bixi-date', datePicker.value);
+  loadFlows();
+});
 
 function currentHour() {
   return parseInt(document.getElementById('hourSlider').value);

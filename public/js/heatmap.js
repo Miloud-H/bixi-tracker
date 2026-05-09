@@ -72,8 +72,23 @@ async function loadData(date) {
 
 const datePicker = document.getElementById('datePicker');
 const today = new Date().toLocaleDateString('fr-CA');
-datePicker.value = today;
-datePicker.addEventListener('change', () => loadData(datePicker.value));
+datePicker.value = sessionStorage.getItem('bixi-date') || today;
+datePicker.addEventListener('change', () => {
+  sessionStorage.setItem('bixi-date', datePicker.value);
+  loadData(datePicker.value);
+});
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = t === 'dark' ? '☀ Clair' : '🌙 Sombre';
+}
+applyTheme(localStorage.getItem('bixi-theme') || 'light');
+document.getElementById('themeToggle')?.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('bixi-theme', next);
+  applyTheme(next);
+});
 
 slider.addEventListener('input', () => { updateSliderBg(); render(); });
 updateSliderBg();

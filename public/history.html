@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BIXI Historique</title>
+  <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('bixi-theme')||'light');</script>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#141820" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -26,6 +27,7 @@
     <a class="nav-link" href="/">← Tracker</a>
     <a class="nav-link" href="/atlas.html">🗺 Atlas</a>
     <a class="nav-link" href="/heatmap.html">🌡 Chaleur</a>
+    <button id="themeToggle" class="nav-link" style="cursor:pointer;font-family:inherit;">🌙 Sombre</button>
   </div>
 
   <div id="main">

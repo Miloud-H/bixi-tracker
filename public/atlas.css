@@ -220,3 +220,22 @@ body { background: #0d1117; color: #e8eaf0; font-family: 'Segoe UI', sans-serif;
 @keyframes blink { 0%,80%,100% { opacity:0.2 } 40% { opacity:1 } }
 .loader-row { display: flex; gap: 8px; }
 .loader-label { color: #5a6480; font-size: 13px; }
+
+/* ── Thème clair ── */
+[data-theme="light"] body { background: #f0f2f5; color: #1a1a1a; }
+[data-theme="light"] .leaflet-tile { filter: none; }
+[data-theme="light"] #panel,
+[data-theme="light"] #legend,
+[data-theme="light"] #focusInfo { background: rgba(255,255,255,0.96); border-color: #d8dce6; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+[data-theme="light"] .panel-time { color: #1a1a1a; }
+[data-theme="light"] .panel-stats { color: #888; }
+[data-theme="light"] .panel-stats b { color: #333; }
+[data-theme="light"] .panel-btn { background: #f0f0f0; border-color: #d8dce6; color: #555; }
+[data-theme="light"] .panel-btn:hover, [data-theme="light"] .panel-btn.active { border-color: #00c060; color: #00c060; }
+[data-theme="light"] #datePicker { background: #fff; border-color: #d8dce6; color: #1a1a1a; }
+[data-theme="light"] #backLink, [data-theme="light"] #navLinks a { background: rgba(255,255,255,0.96); border-color: #d8dce6; color: #555; }
+[data-theme="light"] #backLink:hover, [data-theme="light"] #navLinks a:hover { color: #00c060; border-color: #00c060; }
+[data-theme="light"] .legend-title { color: #888; }
+[data-theme="light"] .legend-item { color: #555; }
+[data-theme="light"] #loader { background: #f0f2f5; }
+[data-theme="light"] #hourSlider { background: linear-gradient(to right, #00e676 0%, #00e676 var(--pct,33%), #d0d4de var(--pct,33%)); }
