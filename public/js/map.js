@@ -11,7 +11,8 @@ import { formatTime } from "./trips.js";
 const L = window.L;
 
 export function initMap() {
-  const map = L.map("map").setView(MONTREAL_CENTER, 13);
+  const map = L.map("map", { zoomControl: false }).setView(MONTREAL_CENTER, 13);
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
 
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     attribution: "&copy; OpenStreetMap &copy; CARTO",

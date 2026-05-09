@@ -22,12 +22,7 @@
         <span class="status-dot"></span>
         BIXI Tracker
       </div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <a href="/atlas.html" style="font-size:11px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">🗺 Atlas</a>
-        <a href="/heatmap.html" style="font-size:11px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">🌡 Chaleur</a>
-        <a href="/history.html" style="font-size:11px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">📈 Historique</a>
-        <button id="themeToggle">🌙 Sombre</button>
-      </div>
+      <button id="themeToggle">🌙 Sombre</button>
     </div>
 
     <!-- ── Section : Exploration temporelle ── -->
@@ -108,10 +103,17 @@
     </section>
 
     <!-- ── Section : Stats ── -->
-    <section class="panel-section" style="border-bottom:none;padding-bottom:0;">
+    <section class="panel-section">
       <div class="section-label">Top stations (arrivées)</div>
       <div id="statsPanel"></div>
     </section>
+
+    <!-- ── Nav mobile (cachée sur desktop) ── -->
+    <div id="panelNav">
+      <a href="/atlas.html">Atlas</a>
+      <a href="/heatmap.html">Chaleur</a>
+      <a href="/history.html">Historique</a>
+    </div>
 
   </div>
 
@@ -144,6 +146,12 @@
 
   <div id="alertBox"></div>
   <div id="map"></div>
+
+  <nav id="pageNav">
+    <a href="/atlas.html">Atlas</a>
+    <a href="/heatmap.html">Chaleur</a>
+    <a href="/history.html">Historique</a>
+  </nav>
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
