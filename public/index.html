@@ -12,6 +12,8 @@
 <body>
 
   <div id="controls">
+
+    <!-- ── En-tête ── -->
     <div class="panel-header">
       <div class="panel-title">
         <span class="status-dot"></span>
@@ -20,67 +22,110 @@
       <button id="themeToggle">🌙 Sombre</button>
     </div>
 
-    <label>Date
-      <input type="date" id="datePicker" />
-    </label>
-    <hr>
+    <!-- ── Section : Exploration temporelle ── -->
+    <section class="panel-section">
+      <div class="section-label">Exploration</div>
 
-    <label>Trajets actifs à
-      <div class="time-display">
-        <span class="time-value" id="timeLabel">12:00</span>
+      <label class="field-label">Date
+        <input type="date" id="datePicker" />
+      </label>
+
+      <div class="time-block">
+        <div class="time-header">
+          <span class="field-label" style="margin:0;">Trajets actifs à</span>
+          <div class="time-actions">
+            <button id="btnNow" class="btn-ghost" title="Revenir à maintenant">⟳ Maintenant</button>
+          </div>
+        </div>
+        <div class="time-display">
+          <span class="time-value" id="timeLabel">12:00</span>
+          <span class="trip-count-inline" id="tripCountInline">– trajets</span>
+        </div>
+        <div class="slider-wrapper">
+          <canvas id="histogramCanvas"></canvas>
+          <input type="range" id="timeSlider" min="0" max="1439" value="720" />
+        </div>
+        <div class="time-footer">
+          <label class="checkbox-label">
+            <input type="checkbox" id="showAllTrips" />
+            Toute la journée
+          </label>
+          <div class="play-row">
+            <button id="togglePlay" class="btn-play">▶ Lecture</button>
+            <button id="btnChart" class="btn-ghost">📊 Courbe</button>
+          </div>
+        </div>
       </div>
-      <div class="slider-wrapper">
-        <canvas id="histogramCanvas"></canvas>
-        <input type="range" id="timeSlider" min="0" max="1439" value="720" />
+
+      <div id="chartPanel">
+        <canvas id="dailyChart"></canvas>
       </div>
-    </label>
+    </section>
 
-    <label style="margin-top:8px;">
-      <input type="checkbox" id="showAllTrips" />
-      <span style="display:inline;text-transform:none;font-size:13px;letter-spacing:0;">Toute la journée</span>
-    </label>
+    <!-- ── Section : Filtres ── -->
+    <section class="panel-section">
+      <div class="section-label">Filtres</div>
+      <label class="field-label">Distance minimale
+        <div class="distance-filter">
+          <input type="range" id="distSlider" min="0" max="5000" step="50" value="0" />
+          <span class="distance-value" id="distLabel">0 m</span>
+        </div>
+      </label>
+    </section>
 
-    <button id="togglePlay">▶ Lecture</button>
+    <!-- ── Section : Station proche ── -->
+    <section class="panel-section">
+      <div class="section-label">Ma station</div>
+      <button id="btnNearby" class="btn-nearby">📍 Voir les arrivées récentes</button>
+      <div id="nearbyResults"></div>
+    </section>
 
-    <button id="btnChart">📊 Activité journalière</button>
-    <div id="chartPanel">
-      <canvas id="dailyChart"></canvas>
-    </div>
+    <!-- ── Section : Recherche ── -->
+    <section class="panel-section">
+      <div class="section-label">Recherche</div>
+      <label class="field-label">ID vélo
+        <div class="search-row">
+          <input type="text" id="bikeSearch" placeholder="ex: E12345" />
+          <button id="btnSearch">↵</button>
+        </div>
+      </label>
+      <button id="btnReset" class="btn-ghost" style="width:100%;margin-top:4px;">↺ Tout réinitialiser</button>
+      <div id="bikeResults"></div>
+    </section>
 
-    <hr>
+    <!-- ── Section : Stats ── -->
+    <section class="panel-section" style="border-bottom:none;padding-bottom:0;">
+      <div class="section-label">Top stations (arrivées)</div>
+      <div id="statsPanel"></div>
+    </section>
 
-    <label>Distance minimale
-      <div class="distance-filter">
-        <input type="range" id="distSlider" min="0" max="5000" step="50" value="0" />
-        <span class="distance-value" id="distLabel">0 m</span>
-      </div>
-    </label>
-
-    <hr>
-
-    <button id="btnNearby">📍 Arrivées à ma station</button>
-    <div id="nearbyResults"></div>
-
-    <label>Recherche par ID vélo
-      <input type="text" id="bikeSearch" placeholder="ex: E12345" />
-    </label>
-    <div class="btn-row">
-      <button id="btnSearch">Chercher</button>
-      <button id="btnReset">↺ Reset</button>
-    </div>
-
-    <div id="bikeResults"></div>
-
-    <hr>
-    <label style="margin-bottom:6px;">Top stations (arrivées)</label>
-    <div id="statsPanel"></div>
   </div>
 
+  <!-- ── Barre de stats ── -->
   <div id="liveStats">
-    🟢 <span id="statActive">–</span> actifs &nbsp;|&nbsp;
-    ⚡ <span id="statCount">0</span> trajets &nbsp;|&nbsp;
-    📈 <span id="statDist">0</span> km &nbsp;|&nbsp;
-    👥 <span id="groupCount">0</span> groupes
+    <div class="stat-pill" title="Vélos actuellement en transit (absents du feed depuis 90s+)">
+      <span class="stat-pill-icon">🟢</span>
+      <span id="statActive">–</span>
+      <span class="stat-pill-label">en route</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-pill" title="Trajets visibles selon les filtres actifs">
+      <span class="stat-pill-icon">⚡</span>
+      <span id="statCount">0</span>
+      <span class="stat-pill-label">trajets</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-pill" title="Distance totale des trajets visibles">
+      <span class="stat-pill-icon">📍</span>
+      <span id="statDist">0</span>
+      <span class="stat-pill-label">km</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-pill" title="Groupes de vélos ayant fait le même trajet simultanément">
+      <span class="stat-pill-icon">👥</span>
+      <span id="groupCount">0</span>
+      <span class="stat-pill-label">groupes</span>
+    </div>
   </div>
 
   <div id="alertBox"></div>

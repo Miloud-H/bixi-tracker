@@ -1,27 +1,26 @@
 /* =============================================
    BIXI TRACKER — Design System
-   CSS Variables for light/dark mode
    ============================================= */
 
 :root {
   --bg-panel:        #ffffff;
   --bg-panel-hover:  #f5f5f5;
-  --bg-item:         #f9f9f9;
+  --bg-item:         #f4f5f7;
   --border:          #e8e8e8;
   --border-strong:   #cccccc;
   --text-primary:    #1a1a1a;
   --text-secondary:  #555555;
-  --text-muted:      #888888;
+  --text-muted:      #999999;
   --accent:          #2ecc71;
   --accent-red:      #e74c3c;
-  --shadow:          0 4px 20px rgba(0,0,0,0.12);
-  --shadow-strong:   0 8px 32px rgba(0,0,0,0.18);
-  --tile-url:        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  --accent-blue:     #3498db;
+  --shadow:          0 4px 20px rgba(0,0,0,0.10);
+  --shadow-strong:   0 8px 32px rgba(0,0,0,0.16);
   --slider-track:    #e0e0e0;
-  --slider-fill:     #2ecc71;
   --btn-bg:          #f0f0f0;
-  --btn-border:      #d0d0d0;
-  --stats-bg:        rgba(255,255,255,0.92);
+  --btn-border:      #d8d8d8;
+  --stats-bg:        rgba(255,255,255,0.95);
+  --section-gap:     14px;
 }
 
 [data-theme="dark"] {
@@ -35,93 +34,52 @@
   --text-muted:      #5a6480;
   --accent:          #00e676;
   --accent-red:      #ff5252;
+  --accent-blue:     #64b5f6;
   --shadow:          0 4px 20px rgba(0,0,0,0.5);
   --shadow-strong:   0 8px 32px rgba(0,0,0,0.7);
   --slider-track:    #2a3348;
-  --slider-fill:     #00e676;
   --btn-bg:          #1e2433;
   --btn-border:      #2a3348;
-  --stats-bg:        rgba(20,24,32,0.92);
+  --stats-bg:        rgba(20,24,32,0.95);
 }
 
-/* =============================================
-   Reset & Base
-   ============================================= */
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: 'DM Sans', 'Segoe UI', sans-serif;
-  font-size: 13px;
-  background: #0d1117;
-  transition: background 0.3s;
-}
-
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', 'Segoe UI', sans-serif; font-size: 13px; }
 #map { height: 100vh; }
 
+/* ── Panneau ── */
 #controls {
   position: absolute;
   top: 12px; left: 12px;
   z-index: 1000;
   background: var(--bg-panel);
-  padding: 16px;
   width: 300px;
   max-height: calc(100vh - 24px);
   overflow-y: auto;
   overflow-x: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: var(--shadow-strong);
   border: 1px solid var(--border);
   transition: background 0.3s, border-color 0.3s;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
+#controls::-webkit-scrollbar { width: 3px; }
+#controls::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
 
-#controls::-webkit-scrollbar { width: 4px; }
-#controls::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 2px;
-}
-
-#controls hr {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 12px 0;
-}
-
-#controls label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-#controls label input,
-#controls label span {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--text-primary);
-}
-
-/* ---- Header ---- */
+/* ── Header ── */
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  z-index: 1;
 }
-
 .panel-title {
   display: flex;
   align-items: center;
@@ -129,91 +87,127 @@ body {
   font-weight: 700;
   font-size: 14px;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
 }
-
 .status-dot {
   width: 8px; height: 8px;
   background: var(--accent);
   border-radius: 50%;
   box-shadow: 0 0 6px var(--accent);
   animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
 }
-
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--accent); }
-  50%       { opacity: 0.7; box-shadow: 0 0 12px var(--accent); }
+  0%, 100% { box-shadow: 0 0 6px var(--accent); }
+  50%       { box-shadow: 0 0 12px var(--accent); }
 }
 
-/* ---- Theme toggle ---- */
-#themeToggle {
-  background: var(--btn-bg);
-  border: 1px solid var(--btn-border);
-  border-radius: 20px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
+/* ── Sections ── */
+.panel-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* ── Labels ── */
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-secondary);
-  transition: all 0.2s;
-  white-space: nowrap;
+  margin-bottom: 8px;
 }
-#themeToggle:hover { background: var(--bg-panel-hover); }
 
-/* ---- Inputs ---- */
+/* ── Inputs ── */
 input[type="date"],
 input[type="text"],
 input[type="number"] {
   width: 100%;
   background: var(--bg-item);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border-radius: 7px;
+  padding: 7px 10px;
   color: var(--text-primary);
   font-size: 13px;
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-top: 4px;
 }
 input[type="date"]:focus,
-input[type="text"]:focus,
-input[type="number"]:focus {
-  border-color: var(--accent);
+input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+
+/* ── Bloc temps ── */
+.time-block { margin-top: 2px; }
+
+.time-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
 }
 
-/* ---- Slider + histogram ---- */
-.slider-wrapper {
-  position: relative;
-  margin-top: 6px;
+.time-display {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.time-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.trip-count-inline {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
+/* ── Slider + histogramme ── */
+.slider-wrapper { position: relative; }
 #histogramCanvas {
   display: block;
   width: 100%;
-  height: 36px;
+  height: 32px;
   border-radius: 4px;
-  opacity: 0.7;
+  opacity: 0.6;
 }
-
 input[type="range"] {
   -webkit-appearance: none;
   width: 100%;
   height: 3px;
   background: transparent;
   outline: none;
-  margin-top: 4px;
+  margin-top: 5px;
   cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--slider-pct, 50%), var(--slider-track) var(--slider-pct, 50%));
+  border-radius: 2px;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 16px; height: 16px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
   cursor: pointer;
   transition: transform 0.15s;
+  margin-top: -6px;
 }
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
 input[type="range"]::-moz-range-thumb {
   width: 16px; height: 16px;
   border-radius: 50%;
@@ -221,241 +215,113 @@ input[type="range"]::-moz-range-thumb {
   border: none;
   cursor: pointer;
 }
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
-  background: linear-gradient(
-    to right,
-    var(--accent) 0%,
-    var(--accent) var(--slider-pct, 50%),
-    var(--slider-track) var(--slider-pct, 50%)
-  );
-  transition: background 0.1s ease-out;
-  border-radius: 2px;
-}
 
-/* ---- Time display ---- */
-.time-display {
+/* Slider désactivé quand "Toute la journée" est coché */
+.slider-disabled { opacity: 0.35; pointer-events: none; }
+
+/* ── Pied du bloc temps ── */
+.time-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 4px;
+  margin-top: 8px;
+  gap: 8px;
 }
-.time-display .time-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+.play-row { display: flex; gap: 6px; }
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
 }
-.time-display .time-window-label {
-  font-size: 11px;
-  color: var(--text-muted);
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 14px; height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
-/* ---- Buttons ---- */
+/* ── Boutons ── */
 button {
   cursor: pointer;
-  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: 7px;
   border: 1px solid var(--btn-border);
-  border-radius: 6px;
   background: var(--btn-bg);
   color: var(--text-primary);
-  font-size: 12px;
+  padding: 6px 10px;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 button:hover { background: var(--bg-panel-hover); border-color: var(--border-strong); }
 
-.btn-row { display: flex; gap: 8px; margin-top: 6px; }
-.btn-row button { flex: 1; }
-
-#togglePlay {
-  width: 100%;
-  margin-top: 8px;
-  background: var(--btn-bg);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+  padding: 4px 6px;
 }
-#togglePlay.playing {
+.btn-ghost:hover { background: var(--bg-item); color: var(--text-secondary); border-color: var(--border); }
+
+.btn-play {
+  font-weight: 600;
+  padding: 6px 14px;
+}
+.btn-play.playing {
   background: var(--accent);
   color: #000;
   border-color: var(--accent);
 }
 
-#btnNearby {
+.btn-nearby {
   width: 100%;
   background: var(--accent-red);
   color: white;
   font-weight: 600;
   border: none;
-  height: 34px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  letter-spacing: 0.02em;
-}
-#btnNearby:hover { opacity: 0.85; background: var(--accent-red); }
-
-#bikeResults {
-  max-height: 220px;
-  overflow-y: auto;
-  margin-top: 10px;
-  font-size: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-}
-
-#bikeResults li {
-  list-style: none;
-  margin-bottom: 6px;
-  padding: 6px 8px;
-  background: var(--bg-item);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-}
-
-#bikeResults a { color: var(--accent); text-decoration: none; }
-
-/* ---- Top stations ---- */
-#statsPanel {
-  margin-top: 4px;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-primary);
-}
-.stat-row:last-child { border-bottom: none; }
-
-.stat-label { color: var(--text-secondary); font-size: 11px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stat-bar-wrap { flex: 1; margin: 0 8px; }
-.stat-bar {
-  height: 3px;
-  background: var(--accent);
-  border-radius: 2px;
-  opacity: 0.7;
-  transition: width 0.4s ease;
-}
-.stat-count { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--text-muted); }
-
-#liveStats {
-  position: fixed;
-  bottom: 16px; right: 16px;
-  z-index: 1000;
-  background: var(--stats-bg);
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-family: 'DM Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  box-shadow: var(--shadow);
-  border-left: 3px solid var(--accent);
-  color: var(--text-primary);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-  transition: background 0.3s;
-}
-
-#alertBox {
-  position: fixed;
-  top: 16px; right: 16px;
-  z-index: 2000;
-}
-
-.alert-banner {
-  background: var(--accent);
-  color: #000;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 7px;
   margin-bottom: 8px;
-  font-weight: 600;
-  font-size: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  animation: slideIn 0.3s ease;
 }
+.btn-nearby:hover { opacity: 0.88; background: var(--accent-red); }
 
-@keyframes slideIn {
-  from { transform: translateX(20px); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
-}
-
-.trip-arrow {
-  font-size: 12px;
-  pointer-events: none;
-}
-
-.leaflet-interactive {
-  transition: stroke 0.2s, stroke-width 0.2s, opacity 0.2s;
-}
-
-[data-theme="dark"] .leaflet-tile {
-  filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7);
-}
-
-.leaflet-tile-container img {
-    transition: filter 0.5s ease-in-out;
-}
-
-input[type="checkbox"] {
-  accent-color: var(--accent);
-  width: 14px; height: 14px;
-  vertical-align: middle;
-  margin-right: 4px;
-}
-
-#nearbyResults {
-  font-size: 12px;
-  margin-bottom: 10px;
-  color: var(--text-primary);
-}
-#nearbyResults a { color: var(--accent); }
-
-.time { font-weight: 600; color: var(--text-secondary); }
-
-/* =============================================
-   Graphique journalier
-   ============================================= */
-
-#chartPanel {
-  display: none;
-  margin-top: 8px;
-  padding: 10px;
-  background: var(--bg-item);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-#chartPanel.open { display: block; }
-
-#chartPanel canvas {
-  width: 100% !important;
-  height: 120px !important;
-}
-
-#btnChart {
-  width: 100%;
-  margin-top: 6px;
+#themeToggle {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 20px;
+  padding: 4px 10px;
   font-size: 11px;
   color: var(--text-secondary);
 }
 
+/* ── Recherche ── */
+.search-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.search-row input { flex: 1; margin-top: 0; }
+.search-row button {
+  padding: 7px 12px;
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.search-row button:hover { opacity: 0.88; }
+
+/* ── Distance ── */
 .distance-filter {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
 }
-
-.distance-filter input[type="range"] {
-  flex: 1;
-  margin-top: 0;
-}
-
+.distance-filter input[type="range"] { flex: 1; margin-top: 0; }
 .distance-value {
   font-size: 12px;
   font-weight: 600;
@@ -465,13 +331,197 @@ input[type="checkbox"] {
   font-variant-numeric: tabular-nums;
 }
 
-#statActive {
-  color: var(--accent);
+/* ── Résultats vélo ── */
+#bikeResults {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 8px;
+  font-size: 12px;
+  scrollbar-width: thin;
+}
+#bikeResults ul { list-style: none; padding: 0; }
+#bikeResults li {
+  padding: 7px 8px;
+  background: var(--bg-item);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-bottom: 5px;
+  color: var(--text-primary);
+}
+#bikeResults a { color: var(--accent); text-decoration: none; }
+.time { font-weight: 600; color: var(--text-secondary); }
+
+/* ── Nearby panel ── */
+#nearbyResults { font-size: 12px; }
+
+.nearby-station-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-item);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.nearby-station-icon { font-size: 16px; }
+.nearby-station-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nearby-arrivals { list-style: none; padding: 0; }
+.nearby-arrival-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  background: var(--bg-item);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.nearby-arrival-item.is-latest {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-item));
+}
+.nearby-arrival-bike {
   font-weight: 700;
+  color: var(--text-primary);
+  font-size: 12px;
+  min-width: 60px;
+}
+.nearby-arrival-time {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.nearby-arrival-ago {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.nearby-empty {
+  text-align: center;
+  padding: 12px 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
+/* ── Chart ── */
+#chartPanel {
+  display: none;
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--bg-item);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#chartPanel.open { display: block; }
+#chartPanel canvas { width: 100% !important; height: 110px !important; }
+
+/* ── Top stations ── */
+#statsPanel { margin-top: 2px; }
+.stat-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stat-bar-wrap { flex: 1; }
+.stat-bar { height: 3px; background: var(--accent); border-radius: 2px; opacity: 0.7; transition: width 0.4s; }
+.stat-count { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 24px; text-align: right; }
+
+/* ── Barre de stats ── */
+#liveStats {
+  position: fixed;
+  bottom: 16px; right: 16px;
+  z-index: 1000;
+  background: var(--stats-bg);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  gap: 4px;
+  transition: background 0.3s;
+}
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: default;
+  transition: background 0.15s;
+}
+.stat-pill:hover { background: var(--bg-item); }
+.stat-pill-icon { font-size: 11px; }
+.stat-pill span:not(.stat-pill-icon):not(.stat-pill-label) {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.stat-pill-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.stat-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* ── Alertes ── */
+#alertBox { position: fixed; top: 16px; right: 16px; z-index: 2000; }
+.alert-banner {
+  background: var(--accent);
+  color: #000;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Carte ── */
+.trip-arrow { font-size: 12px; pointer-events: none; }
+.leaflet-interactive { transition: stroke 0.2s, stroke-width 0.2s, opacity 0.2s; }
+[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7); }
+
+/* ── Popups Leaflet ── */
 .highlightButton {
-  width:100%;
-  padding:2px;
-  margin: 5px 0;
+  width: 100%;
+  padding: 3px;
+  margin: 4px 0 0;
+  font-size: 11px;
 }

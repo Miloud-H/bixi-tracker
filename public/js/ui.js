@@ -22,14 +22,14 @@ function applyTheme(theme) {
   if (btn) btn.textContent = theme === "dark" ? "☀ Clair" : "🌙 Sombre";
 }
 
-// --- Histogram (canvas behind slider) ---
+// --- Histogram ---
 
 export function drawHistogram(canvas, allTrips) {
   if (!canvas || allTrips.length === 0) return;
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const ctx = canvas.getContext("2d");
   const W = canvas.offsetWidth || 260;
-  const H = canvas.offsetHeight || 36;
+  const H = canvas.offsetHeight || 32;
   canvas.width  = W * devicePixelRatio;
   canvas.height = H * devicePixelRatio;
   ctx.scale(devicePixelRatio, devicePixelRatio);
@@ -56,27 +56,23 @@ export function drawHistogram(canvas, allTrips) {
   });
 }
 
-// --- Daily activity chart (Chart.js) ---
+// --- Daily chart ---
 
 let dailyChartInstance = null;
 
 export function drawDailyChart(allTrips) {
   const canvas = document.getElementById("dailyChart");
   if (!canvas) return;
-
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const accent = isDark ? "#00e676" : "#2ecc71";
   const textColor = isDark ? "#9aa3b8" : "#555555";
   const gridColor = isDark ? "#2a3348" : "#e8e8e8";
 
-  // Bucket by hour
   const hours = new Array(24).fill(0);
   for (const t of allTrips) {
     const h = Math.floor(tripEndMinutes(t) / 60);
     if (h >= 0 && h < 24) hours[h]++;
   }
-
-  const labels = hours.map((_, i) => `${i}h`);
 
   if (dailyChartInstance) {
     dailyChartInstance.data.datasets[0].data = hours;
@@ -87,7 +83,7 @@ export function drawDailyChart(allTrips) {
   dailyChartInstance = new Chart(canvas, {
     type: "line",
     data: {
-      labels,
+      labels: hours.map((_, i) => `${i}h`),
       datasets: [{
         data: hours,
         borderColor: accent,
@@ -102,9 +98,10 @@ export function drawDailyChart(allTrips) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: (ctx) => ` ${ctx.raw} trajets` }
-      }},
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => ` ${ctx.raw} trajets` } },
+      },
       scales: {
         x: { ticks: { color: textColor, font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
         y: { ticks: { color: textColor, font: { size: 9 } }, grid: { color: gridColor }, beginAtZero: true },
@@ -117,7 +114,7 @@ export function destroyDailyChart() {
   if (dailyChartInstance) { dailyChartInstance.destroy(); dailyChartInstance = null; }
 }
 
-// --- Slider label + track fill ---
+// --- Slider ---
 
 export function updateSliderLabel(minutes) {
   document.getElementById("timeLabel").textContent = minutesToHHMM(minutes);
@@ -125,17 +122,30 @@ export function updateSliderLabel(minutes) {
   slider.style.setProperty("--slider-pct", (minutes / 1439 * 100) + "%");
 }
 
-// --- Distance filter label ---
+export function updateTripCountInline(count) {
+  const el = document.getElementById("tripCountInline");
+  if (el) el.textContent = count === 1 ? "1 trajet" : `${count} trajets`;
+}
+
+// Grise le slider + histogramme quand "Toute la journée" est coché
+export function setSliderDisabled(disabled) {
+  const wrapper = document.querySelector(".slider-wrapper");
+  const timeDisplay = document.querySelector(".time-display");
+  if (wrapper) wrapper.classList.toggle("slider-disabled", disabled);
+  if (timeDisplay) timeDisplay.classList.toggle("slider-disabled", disabled);
+}
+
+// --- Distance ---
 
 export function updateDistLabel(meters) {
   const el = document.getElementById("distLabel");
   if (!el) return;
-  el.textContent = meters === 0 ? "0 m" : meters >= 1000
-    ? (meters / 1000).toFixed(1) + " km"
+  el.textContent = meters === 0 ? "0 m"
+    : meters >= 1000 ? (meters / 1000).toFixed(1) + " km"
     : meters + " m";
 }
 
-// --- Play button state ---
+// --- Play button ---
 
 export function setPlayingState(playing) {
   const btn = document.getElementById("togglePlay");
@@ -144,22 +154,19 @@ export function setPlayingState(playing) {
   btn.classList.toggle("playing", playing);
 }
 
-// --- Active bikes counter ---
+// --- Active count ---
 
 export function updateActiveCount(count) {
   const el = document.getElementById("statActive");
   if (el) el.textContent = count !== null ? count : "–";
 }
 
-// --- Stats footer ---
+// --- Stats bar ---
 
 export function updateStats(visibleTrips) {
-  const pad = (n) => n.toString().padStart(2, "0");
   document.getElementById("statCount").textContent = visibleTrips.length;
-
   const totalKm = visibleTrips.reduce((sum, t) => sum + t.distance, 0) / 1000;
   document.getElementById("statDist").textContent = totalKm.toFixed(1);
-
   const uniqueGroups = new Set(
     visibleTrips.filter((t) => t.group_id !== null).map((t) => t.group_id)
   );
@@ -178,19 +185,19 @@ export function updateTopStations(trips, stations) {
   }
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   if (top.length === 0) {
-    panel.innerHTML = `<div style="color:var(--text-muted);font-size:11px;padding:4px 0;">Aucune donnée</div>`;
+    panel.innerHTML = `<div style="color:var(--text-muted);font-size:11px;padding:6px 0;">Aucune donnée pour cette sélection</div>`;
     return;
   }
   const maxCount = top[0][1];
   panel.innerHTML = top.map(([name, count]) => `
     <div class="stat-row">
       <span class="stat-label" title="${name}">${name}</span>
-      <div class="stat-bar-wrap"><div class="stat-bar" style="width:${(count/maxCount*100).toFixed(0)}%"></div></div>
+      <div class="stat-bar-wrap"><div class="stat-bar" style="width:${(count / maxCount * 100).toFixed(0)}%"></div></div>
       <span class="stat-count">${count}</span>
     </div>`).join("");
 }
 
-// --- Alert banner ---
+// --- Alert ---
 
 export function showAlert(message) {
   const box = document.getElementById("alertBox");
@@ -210,19 +217,23 @@ export function showAlert(message) {
 export function renderBikePanel(trips, stations, onFocus) {
   const container = document.getElementById("bikeResults");
   if (trips.length === 0) {
-    container.innerHTML = `<div style="color:var(--text-muted);padding:6px 0;">Aucun trajet trouvé.</div>`;
+    container.innerHTML = `<div style="color:var(--text-muted);padding:8px 0;font-size:12px;">Aucun trajet trouvé pour cet ID.</div>`;
     return;
   }
-  let html = `<b style="color:var(--text-primary);">${trips.length} trajet(s)</b><ul style="margin-top:6px;">`;
+  let html = `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${trips.length} trajet(s) sur la période</div><ul>`;
   trips.forEach((t) => {
     const from = findNearestStation(stations, t.start_lat, t.start_lon)?.name ?? "Hors station";
     const to   = findNearestStation(stations, t.end_lat,   t.end_lon)?.name   ?? "Hors station";
+    const dist = Math.round(t.distance);
     html += `
       <li>
-        <span class="time">${formatTime(t.start_time)} → ${formatTime(t.end_time)}</span><br>
-        <span style="color:var(--text-secondary)">${from} ➔ ${to}</span>
+        <span class="time">${formatTime(t.start_time)} → ${formatTime(t.end_time)}</span>
+        <span style="color:var(--text-muted);font-size:10px;margin-left:6px;">${dist} m</span><br>
+        <span style="color:var(--text-secondary);font-size:11px;">
+          ${from}<br>↓ ${to}
+        </span>
         <button onclick="${onFocus}(${t.start_lat},${t.start_lon},${t.end_lat},${t.end_lon})"
-                style="width:auto;padding:2px 6px;margin-top:3px;">Voir</button>
+                style="width:auto;padding:2px 8px;margin-top:4px;">Voir</button>
       </li>`;
   });
   container.innerHTML = html + "</ul>";
@@ -246,26 +257,37 @@ export function renderGroupPanel(groupId, members, stations, onFocus) {
   container.innerHTML = html;
 }
 
-// --- Nearby arrivals panel ---
+// --- Nearby panel — refonte complète ---
 
 export function renderNearbyPanel(stationName, arrivals, onFocus) {
   const div = document.getElementById("nearbyResults");
+
+  const header = `
+    <div class="nearby-station-header">
+      <span class="nearby-station-icon">📍</span>
+      <span class="nearby-station-name" title="${stationName}">${stationName}</span>
+    </div>`;
+
   if (arrivals.length === 0) {
-    div.innerHTML = `<div style="padding:4px 0;color:var(--text-muted);">📍 <b style="color:var(--text-primary)">${stationName}</b><br>Aucune arrivée récente.</div>`;
+    div.innerHTML = header + `<div class="nearby-empty">Aucune arrivée récente à cette station.</div>`;
     return;
   }
-  let html = `<div style="margin-bottom:6px;">📍 <b style="color:var(--text-primary)">${stationName}</b></div><ul style="list-style:none;padding:0;">`;
-  arrivals.forEach((t, i) => {
+
+  const items = arrivals.map((t, i) => {
     const timeAgo = Math.round((Date.now() - new Date(t.end_time)) / 60_000);
-    const hl = i === 0 ? "border-left:3px solid var(--accent-red);background:var(--bg-item);" : "";
-    html += `
-      <li style="padding:5px 6px;margin-bottom:4px;border-radius:5px;${hl}">
-        🚲 <b>${t.bike_id}</b>
-        <span style="color:var(--text-muted);font-size:11px;margin-left:4px;">${timeAgo} min</span>
-        <a href="#" onclick="${onFocus}(${t.start_lat},${t.start_lon},${t.end_lat},${t.end_lon});return false;" style="float:right;">👁</a>
+    const isLatest = i === 0;
+    const timeAgoLabel = timeAgo === 0 ? "à l'instant" : `il y a ${timeAgo} min`;
+    return `
+      <li class="nearby-arrival-item ${isLatest ? "is-latest" : ""}">
+        <span class="nearby-arrival-bike">🚲 ${t.bike_id}</span>
+        <span class="nearby-arrival-time">${formatTime(t.end_time)}</span>
+        <span class="nearby-arrival-ago">${timeAgoLabel}</span>
+        <a href="#" onclick="${onFocus}(${t.start_lat},${t.start_lon},${t.end_lat},${t.end_lon});return false;"
+           style="color:var(--accent);text-decoration:none;font-size:14px;">👁</a>
       </li>`;
-  });
-  div.innerHTML = html + "</ul>";
+  }).join("");
+
+  div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
 }
 
 // --- Timeline player ---

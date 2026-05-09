@@ -4,10 +4,10 @@ import { findNearestStation, haversineDistance } from "./geo.js";
 import {
   initTheme, toggleTheme,
   showAlert, updateStats, updateSliderLabel, updateTopStations,
-  updateDistLabel, updateActiveCount,
+  updateDistLabel, updateActiveCount, updateTripCountInline, setSliderDisabled,
   drawHistogram, drawDailyChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
-  TimelinePlayer,
+  setPlayingState, TimelinePlayer,
 } from "./ui.js";
 
 const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
@@ -16,14 +16,14 @@ const ACTIVE_INTERVAL_MS = 35_000;
 
 class App {
   constructor() {
-    this.map        = initMap();
-    this.stations   = [];
-    this.allTrips   = [];
-    this.tripsLayer = null;
-    this.focusLayer = null;
+    this.map          = initMap();
+    this.stations     = [];
+    this.allTrips     = [];
+    this.tripsLayer   = null;
+    this.focusLayer   = null;
     this.lastTripCount = 0;
-    this.theme      = initTheme();
-    this.chartOpen  = false;
+    this.theme        = initTheme();
+    this.chartOpen    = false;
     this.activeSearch = "";
 
     this.datePicker   = document.getElementById("datePicker");
@@ -43,11 +43,8 @@ class App {
   }
 
   updateRangeSliderPct(el) {
-    const val = el.value;
-    const min = el.min || 0;
-    const max = el.max || 100;
-    const pct = ((val - min) / (max - min)) * 100;
-    el.style.setProperty('--slider-pct', `${pct}%`);
+    const pct = ((el.value - (el.min || 0)) / ((el.max || 100) - (el.min || 0))) * 100;
+    el.style.setProperty("--slider-pct", `${pct}%`);
   }
 
   bindEvents() {
@@ -57,28 +54,38 @@ class App {
       debounce = setTimeout(() => this.render(), 10);
     };
 
-    this.timeSlider.addEventListener("input", e => {
+    this.timeSlider.addEventListener("input", (e) => {
       this.updateRangeSliderPct(e.target);
       debouncedRender();
     });
-    this.distSlider.addEventListener("input", e => {
+    this.distSlider.addEventListener("input", (e) => {
       updateDistLabel(parseInt(this.distSlider.value));
       this.updateRangeSliderPct(e.target);
       debouncedRender();
     });
 
     this.datePicker.addEventListener("change", () => this.load());
-    this.showAllCheck.addEventListener("change", () => this.render());
+
+    this.showAllCheck.addEventListener("change", () => {
+      setSliderDisabled(this.showAllCheck.checked);
+      this.render();
+    });
 
     document.getElementById("togglePlay").addEventListener("click", () => this.player.toggle());
+    document.getElementById("btnNow").addEventListener("click", () => this.goToNow());
     document.getElementById("btnSearch").addEventListener("click", () => this.searchBike());
     document.getElementById("btnReset").addEventListener("click", () => this.reset());
     document.getElementById("btnNearby").addEventListener("click", () => this.checkNearbyArrivals());
+
+    document.getElementById("bikeSearch").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this.searchBike();
+    });
 
     document.getElementById("btnChart").addEventListener("click", () => {
       this.chartOpen = !this.chartOpen;
       const panel = document.getElementById("chartPanel");
       panel.classList.toggle("open", this.chartOpen);
+      document.getElementById("btnChart").textContent = this.chartOpen ? "📊 Fermer" : "📊 Courbe";
       if (this.chartOpen) drawDailyChart(this.allTrips);
     });
 
@@ -98,10 +105,30 @@ class App {
     await this.load();
     await this.refreshActive();
 
-    setInterval(() => this.load(), RELOAD_INTERVAL_MS);
+    setInterval(() => this.load(),          RELOAD_INTERVAL_MS);
     setInterval(() => this.refreshActive(), ACTIVE_INTERVAL_MS);
     this.updateRangeSliderPct(this.timeSlider);
     this.updateRangeSliderPct(this.distSlider);
+  }
+
+  goToNow() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const localToday = new Date(now.getTime() - offset).toISOString().split("T")[0];
+
+    // Si on n'est pas sur aujourd'hui, recharger d'abord
+    if (this.datePicker.value !== localToday) {
+      this.datePicker.value = localToday;
+      this.load().then(() => {
+        this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
+        this.updateRangeSliderPct(this.timeSlider);
+        this.render();
+      });
+    } else {
+      this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
+      this.updateRangeSliderPct(this.timeSlider);
+      this.render();
+    }
   }
 
   async refreshActive() {
@@ -147,19 +174,17 @@ class App {
 
     this.tripsLayer = renderTrips(this.map, visible, this.stations);
     updateStats(visible);
+    updateTripCountInline(visible.length);
     updateTopStations(visible, this.stations);
 
     if (this.activeSearch) this._applyBikeHighlight(this.activeSearch);
   }
 
-  // --- Public (popup onclick via window.app) ---
+  // --- Public ---
 
   searchBike(id) {
     const input = document.getElementById("bikeSearch");
-    if (id) {
-      input.value = id;
-      this.map.closePopup();
-    }
+    if (id) { input.value = id; this.map.closePopup(); }
     const query = input.value.trim().toUpperCase();
     this.activeSearch = query;
 
@@ -167,11 +192,7 @@ class App {
     renderBikePanel(trips, this.stations, "window.app.focusTrip");
 
     if (!this.tripsLayer) return;
-
-    if (query === "") {
-      resetLayerStyles(this.tripsLayer);
-      return;
-    }
+    if (query === "") { resetLayerStyles(this.tripsLayer); return; }
 
     this._applyBikeHighlight(query);
 
@@ -186,12 +207,8 @@ class App {
     this.tripsLayer.eachLayer((l) => {
       const isMatch = l.bike_id && l.bike_id.toUpperCase() === query;
       if (l instanceof L.Polyline) {
-        if (isMatch) {
-          l.setStyle({ color: "#e74c3c", weight: 5, opacity: 1 });
-          l.bringToFront();
-        } else {
-          l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.15 });
-        }
+        if (isMatch) { l.setStyle({ color: "#e74c3c", weight: 5, opacity: 1 }); l.bringToFront(); }
+        else l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.15 });
       } else if (l instanceof L.CircleMarker) {
         l.setStyle({ opacity: isMatch ? 1 : 0.15, fillOpacity: isMatch ? 1 : 0.15 });
       } else if (l.getElement) {
@@ -225,6 +242,7 @@ class App {
     document.getElementById("bikeSearch").value = "";
     this.distSlider.value = 0;
     updateDistLabel(0);
+    this.updateRangeSliderPct(this.distSlider);
     this.resetStyles();
     this.map.flyTo([45.5017, -73.5673], 13);
     this.render();
@@ -232,16 +250,18 @@ class App {
 
   checkNearbyArrivals() {
     const div = document.getElementById("nearbyResults");
-    div.textContent = "Localisation… 🛰";
+    div.innerHTML = `<div class="nearby-empty">Localisation… 🛰</div>`;
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude, longitude } }) => {
         const nearest = findNearestStation(this.stations, latitude, longitude, 250);
-        if (!nearest) { div.textContent = "❌ Aucune station à proximité (250 m)."; return; }
-
+        if (!nearest) {
+          div.innerHTML = `<div class="nearby-empty">❌ Aucune station dans un rayon de 250 m.</div>`;
+          return;
+        }
         const arrivals = this.allTrips
           .filter((t) => haversineDistance(nearest.lat, nearest.lon, t.end_lat, t.end_lon) <= 60)
           .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))
-          .slice(0, 3);
+          .slice(0, 5);
 
         if (arrivals.length > 0) {
           const f = arrivals[0];
@@ -251,7 +271,9 @@ class App {
         }
         renderNearbyPanel(nearest.name, arrivals, "window.app.focusTrip");
       },
-      (err) => { div.textContent = `❌ GPS : ${err.message}`; }
+      (err) => {
+        div.innerHTML = `<div class="nearby-empty">❌ GPS indisponible : ${err.message}</div>`;
+      }
     );
   }
 }
