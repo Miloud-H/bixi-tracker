@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#141820"/>
+  <!-- Wheels -->
+  <circle cx="152" cy="320" r="80" fill="none" stroke="#00e676" stroke-width="28"/>
+  <circle cx="360" cy="320" r="80" fill="none" stroke="#00e676" stroke-width="28"/>
+  <!-- Frame -->
+  <polyline points="152,320 220,180 300,180 360,320" fill="none" stroke="#00e676" stroke-width="28" stroke-linejoin="round" stroke-linecap="round"/>
+  <line x1="220" y1="180" x2="256" y2="320" stroke="#00e676" stroke-width="28" stroke-linecap="round"/>
+  <!-- Handlebar -->
+  <line x1="295" y1="180" x2="330" y2="160" stroke="#00e676" stroke-width="24" stroke-linecap="round"/>
+  <!-- Seat -->
+  <line x1="215" y1="180" x2="180" y2="180" stroke="#00e676" stroke-width="24" stroke-linecap="round"/>
+  <!-- Status dot -->
+  <circle cx="390" cy="118" r="34" fill="#00e676"/>
+</svg>

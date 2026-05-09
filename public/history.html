@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BIXI Historique</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#141820" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="BIXI Tracker" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
   <link rel="stylesheet" href="history.css" />
 </head>
 <body>
@@ -62,5 +67,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script type="module" src="js/history.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
 </html>

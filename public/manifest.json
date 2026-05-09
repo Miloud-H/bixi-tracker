@@ -1,0 +1,13 @@
+{
+  "name": "BIXI Tracker",
+  "short_name": "BIXI",
+  "description": "Suivi en temps réel des vélos BIXI de Montréal et Sherbrooke",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#141820",
+  "theme_color": "#141820",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
