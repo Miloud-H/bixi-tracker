@@ -39,15 +39,24 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const { pathname } = new URL(e.request.url);
 
-  // API : réseau en priorité, cache en fallback offline
-  if (pathname.startsWith('/api/')) {
+  // HTML et API : réseau en priorité, cache en fallback offline
+  // → l'utilisateur voit toujours la dernière version dès qu'il a du réseau
+  if (pathname.startsWith('/api/') || pathname.endsWith('.html') || pathname === '/') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Statique : cache en priorité, puis réseau (et mise en cache)
+  // JS/CSS/icônes : cache en priorité (changent peu entre visites)
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
