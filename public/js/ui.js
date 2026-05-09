@@ -163,7 +163,7 @@ export function updateActiveCount(count) {
 
 // --- Stats bar ---
 
-export function updateStats(visibleTrips) {
+export function updateStats(visibleTrips, dayTotal = null) {
   document.getElementById("statCount").textContent = visibleTrips.length;
   const totalKm = visibleTrips.reduce((sum, t) => sum + t.distance, 0) / 1000;
   document.getElementById("statDist").textContent = totalKm.toFixed(1);
@@ -171,6 +171,8 @@ export function updateStats(visibleTrips) {
     visibleTrips.filter((t) => t.group_id !== null).map((t) => t.group_id)
   );
   document.getElementById("groupCount").textContent = uniqueGroups.size;
+  const dayTotalEl = document.getElementById("statDayTotal");
+  if (dayTotalEl) dayTotalEl.textContent = dayTotal !== null ? dayTotal.toLocaleString() : "–";
 }
 
 // --- Top stations ---

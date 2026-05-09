@@ -1,6 +1,6 @@
 import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup } from "./map.js";
 import { fetchTrips, fetchActive, filterActiveAt, filterByDistance } from "./trips.js";
-import { findNearestStation, haversineDistance } from "./geo.js";
+import { findNearestStation, haversineDistance, CITIES } from "./geo.js";
 import {
   initTheme, toggleTheme,
   showAlert, updateStats, updateSliderLabel, updateTopStations,
@@ -25,6 +25,7 @@ class App {
     this.theme        = initTheme();
     this.chartOpen    = false;
     this.activeSearch = "";
+    this.activeCity   = "montreal"; // ville sélectionnée
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -96,6 +97,18 @@ class App {
     });
 
     this.map.on("popupclose", () => this.resetStyles());
+
+    // Sélecteur de ville
+    document.querySelectorAll(".city-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".city-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        this.activeCity = btn.dataset.city;
+        const city = CITIES[this.activeCity];
+        this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
+        this.render();
+      });
+    });
   }
 
   async init() {
@@ -161,19 +174,23 @@ class App {
     const sliderVal = parseInt(this.timeSlider.value);
     const showAll   = this.showAllCheck.checked;
     const minDist   = parseInt(this.distSlider.value) || 0;
+    const cityFilter = CITIES[this.activeCity]?.filter ?? (() => true);
 
     updateSliderLabel(sliderVal);
 
     if (this.tripsLayer) this.map.removeLayer(this.tripsLayer);
 
+    // Appliquer filtre ville en premier
+    const cityTrips = this.allTrips.filter(cityFilter);
+
     let visible = showAll
-      ? this.allTrips
-      : filterActiveAt(this.allTrips, sliderVal);
+      ? cityTrips
+      : filterActiveAt(cityTrips, sliderVal);
 
     visible = filterByDistance(visible, minDist);
 
     this.tripsLayer = renderTrips(this.map, visible, this.stations);
-    updateStats(visible);
+    updateStats(visible, cityTrips.length);
     updateTripCountInline(visible.length);
     updateTopStations(visible, this.stations);
 

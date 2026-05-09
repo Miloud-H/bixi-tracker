@@ -26,6 +26,12 @@
     <section class="panel-section">
       <div class="section-label">Exploration</div>
 
+      <div class="city-selector">
+        <button class="city-btn active" data-city="montreal">Grand Montréal</button>
+        <button class="city-btn" data-city="sherbrooke">Sherbrooke</button>
+        <button class="city-btn" data-city="all">Toutes</button>
+      </div>
+
       <label class="field-label">Date
         <input type="date" id="datePicker" />
       </label>
@@ -109,9 +115,9 @@
       <span class="stat-pill-label">en route</span>
     </div>
     <div class="stat-divider"></div>
-    <div class="stat-pill" title="Trajets visibles selon les filtres actifs">
+    <div class="stat-pill" title="Trajets visibles selon les filtres actifs / total de la journée">
       <span class="stat-pill-icon">⚡</span>
-      <span id="statCount">0</span>
+      <span id="statCount">0</span><span class="stat-pill-sep">/</span><span id="statDayTotal">–</span>
       <span class="stat-pill-label">trajets</span>
     </div>
     <div class="stat-divider"></div>

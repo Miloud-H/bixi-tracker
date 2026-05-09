@@ -513,7 +513,6 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   to   { transform: translateX(0); opacity: 1; }
 }
 
-/* ── Carte ── */
 .trip-arrow { font-size: 12px; pointer-events: none; }
 .leaflet-interactive { transition: stroke 0.2s, stroke-width 0.2s, opacity 0.2s; }
 [data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7); }
@@ -524,4 +523,147 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   padding: 3px;
   margin: 4px 0 0;
   font-size: 11px;
+}
+
+.city-selector {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.city-btn {
+  flex: 1;
+  padding: 5px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--btn-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.city-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.city-btn.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* =============================================
+   Total journalier dans la stats bar
+   ============================================= */
+
+.stat-pill-sep {
+  opacity: 0.4;
+  margin: 0 2px;
+  font-size: 10px;
+}
+
+#statDayTotal {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* =============================================
+   Panel "Arrivées à ma station" — refonte
+   ============================================= */
+
+.nearby-station-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.nearby-station-icon { font-size: 14px; flex-shrink: 0; }
+
+.nearby-station-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nearby-empty {
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 0;
+}
+
+.nearby-arrivals {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nearby-arrival-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg-item);
+  border: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.nearby-arrival-item.is-latest {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-item);
+}
+
+.nearby-arrival-bike {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.nearby-arrival-time {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nearby-arrival-ago {
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* =============================================
+   Trip count inline sous le slider
+   ============================================= */
+
+.trip-count-inline {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================
+   Stat pill separator
+   ============================================= */
+
+.stat-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  opacity: 0.6;
 }
