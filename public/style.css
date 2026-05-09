@@ -805,7 +805,7 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   display: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   /* La carte prend tout l'écran */
   #map { height: 100dvh; }
 
@@ -867,6 +867,12 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   }
   .stat-pill-label { font-size: 9px; }
   .stat-divider { display: none; }
+
+  /* Zoom Leaflet inutile sur mobile (pinch-zoom disponible) */
+  .leaflet-control-zoom { display: none !important; }
+
+  /* Fiche station : masquée sur mobile */
+  #stationCard { display: none !important; }
 
   /* Nav flottante cachée sur mobile, nav panneau visible */
   #pageNav { display: none; }
