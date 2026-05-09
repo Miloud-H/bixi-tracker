@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BIXI Chaleur — Densité des départs</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { background: #0d1117; color: #e8eaf0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+
+    #map { height: 100vh; width: 100vw; }
+    .leaflet-tile { filter: brightness(0.7) saturate(0.4); }
+
+    /* ── Liens navigation ── */
+    #navLinks {
+      position: fixed; top: 16px; left: 16px;
+      display: flex; gap: 8px;
+      z-index: 1000;
+    }
+    .nav-link {
+      background: rgba(14, 17, 23, 0.92);
+      border: 1px solid #2a3348;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #9aa3b8;
+      text-decoration: none;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .nav-link:hover { color: #ff5252; border-color: #ff5252; }
+
+    /* ── Panneau bas ── */
+    #panel {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(14, 17, 23, 0.92);
+      border: 1px solid #2a3348;
+      border-radius: 14px;
+      padding: 14px 28px 12px;
+      z-index: 1000;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      width: min(calc(100vw - 24px), 460px);
+      backdrop-filter: blur(8px);
+    }
+
+    .panel-time {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+    .panel-time span { color: #ff5252; }
+
+    #hourSlider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(to right, #ff5252 0%, #ff5252 var(--pct,70%), #2a3348 var(--pct,70%));
+      outline: none;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    #hourSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #ff5252;
+      box-shadow: 0 0 8px #ff5252;
+      cursor: pointer;
+    }
+    #hourSlider::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #ff5252;
+      border: none;
+      cursor: pointer;
+    }
+
+    .panel-stats {
+      font-size: 12px;
+      color: #5a6480;
+      letter-spacing: 0.03em;
+      margin-bottom: 10px;
+    }
+    .panel-stats b { color: #9aa3b8; }
+
+    .panel-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .panel-btn {
+      background: #1a2030;
+      border: 1px solid #2a3348;
+      color: #9aa3b8;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .panel-btn:hover, .panel-btn.active {
+      border-color: #ff5252;
+      color: #ff5252;
+    }
+    .panel-btn.playing {
+      background: #ff5252;
+      color: #000;
+      border-color: #ff5252;
+      font-weight: 600;
+    }
+
+    #datePicker {
+      background: #1a2030;
+      border: 1px solid #2a3348;
+      border-radius: 6px;
+      color: #e8eaf0;
+      font-size: 12px;
+      padding: 6px 8px;
+      outline: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* ── Sélecteur de ville ── */
+    .city-btns {
+      display: flex;
+      gap: 4px;
+    }
+    .city-btn {
+      background: #1a2030;
+      border: 1px solid #2a3348;
+      color: #9aa3b8;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .city-btn.active {
+      background: #ff5252;
+      color: #000;
+      border-color: #ff5252;
+      font-weight: 600;
+    }
+
+    /* ── Légende ── */
+    #legend {
+      position: fixed; top: 16px; right: 16px;
+      background: rgba(14, 17, 23, 0.92);
+      border: 1px solid #2a3348;
+      border-radius: 10px;
+      padding: 12px 14px;
+      z-index: 1000;
+      font-size: 12px;
+      min-width: 180px;
+      backdrop-filter: blur(8px);
+    }
+    .legend-title {
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #5a6480;
+      margin-bottom: 8px;
+    }
+    .gradient-bar {
+      height: 10px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000);
+      margin-bottom: 4px;
+    }
+    .gradient-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #5a6480;
+    }
+
+    /* ── Loader ── */
+    #loader {
+      position: fixed; inset: 0;
+      background: #0d1117;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .loader-row { display: flex; gap: 8px; }
+    .loader-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff5252;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    .loader-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loader-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100% { opacity:0.2 } 40% { opacity:1 } }
+    .loader-label { color: #5a6480; font-size: 13px; }
+
+    /* ── Mobile ── */
+    #legendToggle { display: none; }
+
+    @media (max-width: 640px) {
+      #panel {
+        bottom: 0;
+        border-radius: 14px 14px 0 0;
+        padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+      }
+      .panel-time { font-size: 22px; margin-bottom: 6px; }
+      .panel-actions { gap: 6px; }
+      .panel-btn { padding: 8px 14px; min-height: 38px; }
+
+      #legend { display: none; }
+      #legend.open { display: block; }
+
+      #legendToggle {
+        display: block;
+        position: fixed;
+        top: 16px; right: 16px;
+        background: rgba(14, 17, 23, 0.92);
+        border: 1px solid #2a3348;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        color: #9aa3b8;
+        z-index: 1001;
+        cursor: pointer;
+        min-height: 38px;
+        font-family: inherit;
+      }
+
+      #navLinks { top: 12px; left: 12px; }
+      .nav-link { font-size: 11px; padding: 8px 10px; min-height: 38px; line-height: 1; display: flex; align-items: center; }
+
+      #hourSlider::-webkit-slider-thumb { width: 24px; height: 24px; }
+      #datePicker { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loader">
+    <div class="loader-row">
+      <div class="loader-dot"></div>
+      <div class="loader-dot"></div>
+      <div class="loader-dot"></div>
+    </div>
+    <div class="loader-label">Chargement de la densité…</div>
+  </div>
+
+  <div id="navLinks">
+    <a class="nav-link" href="/">← Tracker</a>
+    <a class="nav-link" href="/atlas.html">🗺 Atlas</a>
+  </div>
+
+  <button id="legendToggle">📊 Légende</button>
+
+  <div id="map"></div>
+
+  <div id="legend">
+    <div class="legend-title">Densité des départs</div>
+    <div class="gradient-bar"></div>
+    <div class="gradient-labels"><span>Faible</span><span>Intense</span></div>
+  </div>
+
+  <div id="panel">
+    <div class="panel-time"><span id="hourDisplay">17</span>:00</div>
+    <input type="range" id="hourSlider" min="0" max="23" value="17" step="1" />
+    <div class="panel-stats" id="statsDisplay">Chargement…</div>
+    <div class="panel-actions">
+      <div class="city-btns">
+        <button class="city-btn active" data-city="montreal">Montréal</button>
+        <button class="city-btn" data-city="sherbrooke">Sherbrooke</button>
+      </div>
+      <input type="date" id="datePicker" />
+      <button class="panel-btn" id="btnPlay">▶ Lecture</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script>
+    const CITIES = {
+      montreal:   { center: [45.5088, -73.5878], zoom: 13, filter: p => p.lon < -72.5 },
+      sherbrooke: { center: [45.4042, -71.8929], zoom: 13, filter: p => p.lon >= -72.5 },
+    };
+
+    const map = L.map('map', { zoomControl: false }).setView(CITIES.montreal.center, CITIES.montreal.zoom);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      maxZoom: 18,
+    }).addTo(map);
+
+    // ── État ────────────────────────────────────────────────────────
+    let allPoints = [];   // { lat, lon, hour, volume }[]
+    let heatLayer = null;
+    let activeCity = 'montreal';
+    let playInterval = null;
+
+    // ── Slider pct visuel ────────────────────────────────────────────
+    const slider = document.getElementById('hourSlider');
+    function updateSliderBg() {
+      const pct = (slider.value / 23) * 100;
+      slider.style.setProperty('--pct', pct + '%');
+    }
+    slider.addEventListener('input', () => { updateSliderBg(); render(); });
+    updateSliderBg();
+
+    // ── Rendu heatmap ────────────────────────────────────────────────
+    function render() {
+      const hour = parseInt(slider.value);
+      document.getElementById('hourDisplay').textContent = hour.toString().padStart(2, '0');
+
+      const cityFilter = CITIES[activeCity].filter;
+      const pts = allPoints.filter(p => p.hour === hour && cityFilter(p));
+
+      if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+      if (pts.length === 0) {
+        document.getElementById('statsDisplay').innerHTML = `Aucun départ à <b>${hour}h</b>`;
+        return;
+      }
+
+      const maxVol = Math.max(...pts.map(p => p.volume), 1);
+      const heatPts = pts.map(p => [p.lat, p.lon, p.volume / maxVol]);
+
+      heatLayer = L.heatLayer(heatPts, {
+        radius: 22,
+        blur: 16,
+        maxZoom: 15,
+        max: 1.0,
+        gradient: { 0.2: '#0000ff', 0.4: '#00ffff', 0.6: '#00ff00', 0.8: '#ffff00', 1.0: '#ff0000' },
+      }).addTo(map);
+
+      const total = pts.reduce((s, p) => s + p.volume, 0);
+      document.getElementById('statsDisplay').innerHTML =
+        `<b>${total}</b> départs à <b>${hour}h</b> — <b>${pts.length}</b> zones actives`;
+    }
+
+    // ── Chargement ────────────────────────────────────────────────────
+    async function loadData(date) {
+      document.getElementById('loader').style.display = 'flex';
+      try {
+        const url = `/api/heatmap?date=${date}`;
+        const res = await fetch(url);
+        allPoints = await res.json();
+        render();
+      } catch(e) {
+        document.getElementById('statsDisplay').textContent = 'Erreur de chargement';
+      } finally {
+        document.getElementById('loader').style.display = 'none';
+      }
+    }
+
+    // ── Date picker ───────────────────────────────────────────────────
+    const datePicker = document.getElementById('datePicker');
+    const today = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD
+    datePicker.value = today;
+    datePicker.addEventListener('change', () => loadData(datePicker.value));
+
+    // ── Ville ─────────────────────────────────────────────────────────
+    document.querySelectorAll('.city-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCity = btn.dataset.city;
+        const city = CITIES[activeCity];
+        map.flyTo(city.center, city.zoom, { duration: 0.8 });
+        render();
+      });
+    });
+
+    // ── Lecture auto ──────────────────────────────────────────────────
+    const btnPlay = document.getElementById('btnPlay');
+    btnPlay.addEventListener('click', () => {
+      if (playInterval) {
+        clearInterval(playInterval);
+        playInterval = null;
+        btnPlay.textContent = '▶ Lecture';
+        btnPlay.classList.remove('playing');
+      } else {
+        btnPlay.textContent = '⏸ Pause';
+        btnPlay.classList.add('playing');
+        playInterval = setInterval(() => {
+          slider.value = (parseInt(slider.value) + 1) % 24;
+          updateSliderBg();
+          render();
+        }, 800);
+      }
+    });
+
+    // ── Légende toggle mobile ─────────────────────────────────────────
+    document.getElementById('legendToggle').addEventListener('click', () => {
+      document.getElementById('legend').classList.toggle('open');
+    });
+
+    // ── Démarrage ─────────────────────────────────────────────────────
+    loadData(today);
+  </script>
+</body>
+</html>

@@ -141,9 +141,8 @@
       border-radius: 1px;
     }
 
-    /* ── Lien retour ── */
-    #backLink {
-      position: fixed; top: 16px; left: 16px;
+    /* ── Liens navigation ── */
+    #backLink, #navLinks a {
       background: rgba(14, 17, 23, 0.92);
       border: 1px solid #2a3348;
       border-radius: 8px;
@@ -151,10 +150,9 @@
       font-size: 12px;
       color: #9aa3b8;
       text-decoration: none;
-      z-index: 1000;
-      transition: color 0.15s;
+      transition: color 0.15s, border-color 0.15s;
     }
-    #backLink:hover { color: #00e676; border-color: #00e676; }
+    #backLink:hover, #navLinks a:hover { color: #00e676; border-color: #00e676; }
 
     /* ── Date picker ── */
     #datePicker {
@@ -213,7 +211,7 @@
         min-height: 38px;
       }
 
-      #backLink { font-size: 12px; padding: 8px 12px; min-height: 38px; line-height: 1; }
+      #navLinks a, #backLink { font-size: 11px; padding: 8px 10px; min-height: 38px; }
 
       #hourSlider::-webkit-slider-thumb { width: 24px; height: 24px; }
       input[type="date"] { font-size: 16px; } /* évite zoom iOS */
@@ -252,7 +250,10 @@
     <div class="loader-label">Chargement des flux…</div>
   </div>
 
-  <a id="backLink" href="/">← Tracker</a>
+  <div id="navLinks" style="position:fixed;top:16px;left:16px;display:flex;gap:8px;z-index:1000;">
+    <a id="backLink" href="/">← Tracker</a>
+    <a href="/heatmap.html" style="background:rgba(14,17,23,0.92);border:1px solid #2a3348;border-radius:8px;padding:8px 14px;font-size:12px;color:#9aa3b8;text-decoration:none;transition:color 0.15s;" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#9aa3b8'">🌡 Chaleur</a>
+  </div>
   <button id="legendToggle">📋 Légende</button>
 
   <div id="focusInfo"></div>

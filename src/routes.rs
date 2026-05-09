@@ -147,6 +147,67 @@ pub async fn get_active(
 // --- Flows endpoint ---
 
 #[derive(serde::Serialize)]
+pub struct HeatPoint {
+    pub lat: f64,
+    pub lon: f64,
+    pub hour: u8,
+    pub volume: i64,
+}
+
+#[derive(serde::Deserialize)]
+pub struct HeatQuery {
+    pub date: Option<String>,
+}
+
+pub async fn get_heatmap(
+    State(pool): State<DbPool>,
+    Query(params): Query<HeatQuery>,
+) -> Json<Vec<HeatPoint>> {
+    let date_str = params
+        .date
+        .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
+
+    let Ok(date) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") else {
+        return Json(vec![]);
+    };
+
+    let (start_utc, end_utc) = day_bounds_utc(date);
+
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(e) => { eprintln!("DB pool error in get_heatmap: {e}"); return Json(vec![]); }
+    };
+
+    let mut stmt = match conn.prepare(
+        "SELECT ROUND(start_lat, 3), ROUND(start_lon, 3),
+                CAST(strftime('%H', datetime(start_time, '-4 hours')) AS INTEGER),
+                COUNT(*) as volume
+         FROM trips
+         WHERE end_time >= ?1 AND end_time <= ?2
+           AND distance > 100
+         GROUP BY 1, 2, 3
+         ORDER BY volume DESC",
+    ) {
+        Ok(s) => s,
+        Err(e) => { eprintln!("DB prepare error: {e}"); return Json(vec![]); }
+    };
+
+    let rows = match stmt.query_map([&start_utc, &end_utc], |row| {
+        Ok(HeatPoint {
+            lat: row.get(0)?,
+            lon: row.get(1)?,
+            hour: row.get::<_, i64>(2)? as u8,
+            volume: row.get(3)?,
+        })
+    }) {
+        Ok(r) => r,
+        Err(e) => { eprintln!("DB query error: {e}"); return Json(vec![]); }
+    };
+
+    Json(rows.filter_map(|r| r.ok()).collect())
+}
+
+#[derive(serde::Serialize)]
 pub struct Flow {
     pub origin: String,
     pub destination: String,

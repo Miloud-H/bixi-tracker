@@ -261,7 +261,8 @@ class App {
     updateDistLabel(0);
     this.updateRangeSliderPct(this.distSlider);
     this.resetStyles();
-    this.map.flyTo([45.5017, -73.5673], 13);
+    const city = CITIES[this.activeCity];
+    this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
     this.render();
   }
 

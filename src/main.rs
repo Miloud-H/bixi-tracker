@@ -30,7 +30,8 @@ async fn main() {
     let app = Router::new()
         .route("/api/trips",  get(routes::get_trips).with_state(pool.clone()))
         .route("/api/active", get(routes::get_active).with_state(in_flight))
-        .route("/api/flows",  get(routes::get_flows).with_state(pool))
+        .route("/api/flows",   get(routes::get_flows).with_state(pool.clone()))
+        .route("/api/heatmap", get(routes::get_heatmap).with_state(pool))
         .fallback_service(ServeDir::new("public"))
         .layer(CorsLayer::permissive());
 
