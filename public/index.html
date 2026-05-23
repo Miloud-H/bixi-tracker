@@ -96,8 +96,13 @@
     <!-- ── Section : Station proche ── -->
     <section class="panel-section">
       <div class="section-label">Ma station</div>
-      <button id="btnNearby" class="btn-nearby">📍 Voir les arrivées récentes</button>
+      <div class="nearby-btns">
+        <button id="btnNearby"     class="btn-nearby">📍 Arrivées</button>
+        <button id="btnDepartures" class="btn-nearby">🚴 Départs</button>
+      </div>
       <div id="nearbyResults"></div>
+      <div id="departureResults"></div>
+      <div id="watchStatus"></div>
     </section>
 
     <!-- ── Section : Recherche ── -->

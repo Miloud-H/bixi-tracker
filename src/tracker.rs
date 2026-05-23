@@ -76,20 +76,20 @@ fn load_in_flight(in_flight: &InFlightBikes) {
         Err(_) => return,
     };
 
-    let map: HashMap<String, String> = match serde_json::from_str(&data) {
+    let map: HashMap<String, (String, f64, f64)> = match serde_json::from_str(&data) {
         Ok(m) => m,
-        Err(e) => { eprintln!("Failed to parse in_flight.json: {e}"); return; }
+        Err(e) => { eprintln!("Failed to parse in_flight.json (format change?): {e}"); return; }
     };
 
     let cutoff = Utc::now() - chrono::Duration::minutes(120);
     let mut count = 0usize;
 
     if let Ok(mut flight) = in_flight.write() {
-        for (bike_id, ts_str) in map {
+        for (bike_id, (ts_str, lat, lon)) in map {
             if let Ok(ts) = DateTime::parse_from_rfc3339(&ts_str) {
                 let ts_utc = ts.with_timezone(&Utc);
                 if ts_utc > cutoff {
-                    flight.insert(bike_id, ts_utc);
+                    flight.insert(bike_id, (ts_utc, lat, lon));
                     count += 1;
                 }
             }
@@ -107,9 +107,9 @@ fn save_in_flight(in_flight: &InFlightBikes) {
         Err(_) => return,
     };
 
-    let map: HashMap<&String, String> = flight
+    let map: HashMap<&String, (String, f64, f64)> = flight
         .iter()
-        .map(|(id, ts)| (id, ts.to_rfc3339()))
+        .map(|(id, (ts, lat, lon))| (id, (ts.to_rfc3339(), *lat, *lon)))
         .collect();
 
     match serde_json::to_string(&map) {
@@ -270,8 +270,13 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                     {
                         let mut flight = in_flight.write().unwrap();
                         for (id, &first_absent) in &disappeared_at {
-                            if (now - first_absent).num_seconds() >= MIN_ABSENT_SECS {
-                                flight.entry(id.clone()).or_insert(first_absent);
+                            if (now - first_absent).num_seconds() >= MIN_ABSENT_SECS
+                                && !flight.contains_key(id)
+                            {
+                                let (dep_lat, dep_lon) = positions.get(id)
+                                    .map(|p| (p.lat, p.lon))
+                                    .unwrap_or((0.0, 0.0));
+                                flight.insert(id.clone(), (first_absent, dep_lat, dep_lon));
                             }
                         }
                         for id in &returned {
@@ -279,7 +284,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                         }
                         // Keep only bikes still absent from the feed and within the 2h window.
                         // Without this, returned bikes linger until timeout inflating the count.
-                        flight.retain(|id, start| {
+                        flight.retain(|id, (start, _, _)| {
                             disappeared_at.contains_key(id)
                                 && (now - *start).num_minutes() < 120
                         });

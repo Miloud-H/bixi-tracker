@@ -7,8 +7,9 @@ use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use chrono_tz::America::Montreal;
 
 use crate::models::{
-    ActiveStats, DayStats, Flow, FlowQuery, HeatPoint, HeatQuery,
-    HistoryQuery, Trip, TripQuery, Zone, ZoneQuery,
+    ActiveStats, BikeStatus, BikeStatusQuery, DayStats, DepartingBike,
+    Flow, FlowQuery, HeatPoint, HeatQuery, HistoryQuery,
+    NearbyQuery, Trip, TripQuery, Zone, ZoneQuery,
 };
 use crate::AppState;
 
@@ -236,6 +237,54 @@ pub async fn get_flows(
 
     state.flow_cache.set(cache_key, flows.clone());
     Ok(Json(flows))
+}
+
+// --- Départs récents à proximité ---
+
+pub async fn get_departures_nearby(
+    State(state): State<AppState>,
+    Query(params): Query<NearbyQuery>,
+) -> Json<Vec<DepartingBike>> {
+    const SNAP_M: f64 = 120.0; // emprise physique d'une station BIXI
+    let now = Utc::now();
+
+    let flight = match state.in_flight.read() {
+        Ok(f) => f,
+        Err(_) => return Json(vec![]),
+    };
+
+    let mut bikes: Vec<DepartingBike> = flight
+        .iter()
+        .filter_map(|(bike_id, (departed_at, dep_lat, dep_lon))| {
+            let dist_m = crate::zones::haversine_km(params.lat, params.lon, *dep_lat, *dep_lon) * 1000.0;
+            if dist_m <= SNAP_M {
+                Some(DepartingBike {
+                    bike_id:      bike_id.clone(),
+                    departed_at:  departed_at.to_rfc3339(),
+                    elapsed_secs: (now - *departed_at).num_seconds(),
+                    dep_lat:      *dep_lat,
+                    dep_lon:      *dep_lon,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    bikes.sort_by_key(|b| b.elapsed_secs);
+    Json(bikes)
+}
+
+// --- Statut d'un vélo (en route ou arrivé) ---
+
+pub async fn get_bike_status(
+    State(state): State<AppState>,
+    Query(params): Query<BikeStatusQuery>,
+) -> Json<BikeStatus> {
+    let in_flight = state.in_flight.read()
+        .map(|f| f.contains_key(&params.bike_id))
+        .unwrap_or(false);
+    Json(BikeStatus { in_flight })
 }
 
 // --- Historique ---

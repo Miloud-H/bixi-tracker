@@ -278,17 +278,69 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   border-color: var(--accent);
 }
 
+.nearby-btns {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
 .btn-nearby {
-  width: 100%;
+  flex: 1;
   background: var(--accent-red);
   color: white;
   font-weight: 600;
   border: none;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 7px;
   margin-bottom: 8px;
+  font-size: 13px;
 }
-.btn-nearby:hover { opacity: 0.88; background: var(--accent-red); }
+.btn-nearby:hover { opacity: 0.88; }
+
+.watch-btn {
+  margin-left: auto;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.watch-btn:hover { opacity: 0.85; }
+
+.watch-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--text);
+}
+.watch-stop {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+}
+.watch-stop:hover { color: var(--text); }
+.watch-arrived {
+  background: color-mix(in srgb, #00e676 15%, transparent);
+  border: 1px solid #00e676;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--text);
+}
 
 #themeToggle {
   background: var(--btn-bg);

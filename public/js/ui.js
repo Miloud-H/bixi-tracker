@@ -393,6 +393,47 @@ export function renderNearbyPanel(stationName, arrivals, onFocus) {
   div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
 }
 
+// --- Nearby departures panel ---
+
+export function renderDeparturesPanel(stationName, departures) {
+  const div = document.getElementById("departureResults");
+
+  const header = `
+    <div class="nearby-station-header">
+      <span class="nearby-station-icon">🚴</span>
+      <span class="nearby-station-name" title="${stationName}">${stationName}</span>
+    </div>`;
+
+  if (departures.length === 0) {
+    div.innerHTML = header + `<div class="nearby-empty">Aucun départ récent détecté.</div>`;
+    return;
+  }
+
+  const items = departures.map((d, i) => {
+    const mins  = Math.round(d.elapsed_secs / 60);
+    const label = mins === 0 ? "à l'instant" : `il y a ${mins} min`;
+    return `
+      <li class="nearby-arrival-item ${i === 0 ? "is-latest" : ""}">
+        <span class="nearby-arrival-bike">🚲 ${d.bike_id}</span>
+        <span class="nearby-arrival-ago">${label}</span>
+        <button class="watch-btn" onclick="window.app.watchBike('${d.bike_id}')">Suivre</button>
+      </li>`;
+  }).join("");
+
+  div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
+}
+
+// --- Watch status indicator ---
+
+export function renderWatchStatus(bikeId) {
+  const el = document.getElementById("watchStatus");
+  el.innerHTML = `
+    <div class="watch-active">
+      ⏱ Suivi&nbsp;<b>${bikeId}</b>
+      <button class="watch-stop" onclick="window.app.stopWatch()">✕</button>
+    </div>`;
+}
+
 // --- Timeline player ---
 
 export class TimelinePlayer {

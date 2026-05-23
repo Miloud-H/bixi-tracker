@@ -80,7 +80,7 @@ pub const ZONES: &[(&str, f64, f64, &str)] = &[
 
 const MAX_SNAP_KM: f64 = 0.6; // 600 m — au-delà, le trajet n'est rattaché à aucune zone
 
-fn haversine_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
+pub fn haversine_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let dlat = (lat2 - lat1).to_radians();
     let dlon = (lon2 - lon1).to_radians();
     let a = (dlat / 2.0).sin().powi(2)

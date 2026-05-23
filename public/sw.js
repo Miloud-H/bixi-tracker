@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v2';
+const CACHE = 'bixi-v3';
 const STATIC = [
   '/',
   '/index.html',

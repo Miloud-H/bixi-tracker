@@ -61,12 +61,39 @@ pub struct TripQuery {
     pub date: Option<String>,
 }
 
-pub type InFlightBikes = Arc<RwLock<HashMap<String, DateTime<Utc>>>>;
+/// (departure_time, departure_lat, departure_lon)
+pub type InFlightEntry = (DateTime<Utc>, f64, f64);
+pub type InFlightBikes = Arc<RwLock<HashMap<String, InFlightEntry>>>;
 
 #[derive(Serialize)]
 pub struct ActiveStats {
     pub active_count: usize,
     pub last_updated: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct DepartingBike {
+    pub bike_id:      String,
+    pub departed_at:  String,
+    pub elapsed_secs: i64,
+    pub dep_lat:      f64,
+    pub dep_lon:      f64,
+}
+
+#[derive(Deserialize)]
+pub struct NearbyQuery {
+    pub lat: f64,
+    pub lon: f64,
+}
+
+#[derive(Serialize)]
+pub struct BikeStatus {
+    pub in_flight: bool,
+}
+
+#[derive(Deserialize)]
+pub struct BikeStatusQuery {
+    pub bike_id: String,
 }
 
 // --- Zone Atlas ---

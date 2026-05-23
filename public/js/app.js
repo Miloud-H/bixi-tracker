@@ -8,6 +8,7 @@ import {
   drawHistogram, drawDailyChart, destroyDailyChart, drawStationHourChart,
   drawDurationChart, destroyDurationChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
+  renderDeparturesPanel, renderWatchStatus,
   setPlayingState, TimelinePlayer,
 } from "./ui.js";
 
@@ -26,8 +27,10 @@ class App {
     this.theme        = initTheme();
     this.chartOpen    = false;
     this.chartTab     = "hourly";
-    this.activeSearch = "";
-    this.activeCity   = "montreal"; // ville sélectionnée
+    this.activeSearch  = "";
+    this.activeCity    = "montreal";
+    this.watchInterval = null;
+    this.watchedBike   = null;
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -87,7 +90,8 @@ class App {
     document.getElementById("btnNow").addEventListener("click", () => this.goToNow());
     document.getElementById("btnSearch").addEventListener("click", () => this.searchBike());
     document.getElementById("btnReset").addEventListener("click", () => this.reset());
-    document.getElementById("btnNearby").addEventListener("click", () => this.checkNearbyArrivals());
+    document.getElementById("btnNearby").addEventListener("click",     () => this.checkNearbyArrivals());
+    document.getElementById("btnDepartures").addEventListener("click", () => this.checkNearbyDepartures());
 
     document.getElementById("bikeSearch").addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.searchBike();
@@ -291,8 +295,10 @@ class App {
     this.activeSearch = "";
     resetLayerStyles(this.tripsLayer);
     if (this.focusLayer) { this.map.removeLayer(this.focusLayer); this.focusLayer = null; }
-    document.getElementById("nearbyResults").innerHTML = "";
-    document.getElementById("bikeResults").innerHTML   = "";
+    document.getElementById("nearbyResults").innerHTML    = "";
+    document.getElementById("departureResults").innerHTML = "";
+    document.getElementById("bikeResults").innerHTML      = "";
+    this.stopWatch();
   }
 
   showStationCard(station) {
@@ -339,6 +345,65 @@ class App {
     const city = CITIES[this.activeCity];
     this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
     this.render();
+  }
+
+  checkNearbyDepartures() {
+    const div = document.getElementById("departureResults");
+    div.innerHTML = `<div class="nearby-empty">Localisation… 🛰</div>`;
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords: { latitude, longitude } }) => {
+        const nearest = findNearestStation(this.stations, latitude, longitude, 250);
+        if (!nearest) {
+          div.innerHTML = `<div class="nearby-empty">❌ Aucune station dans 250 m.</div>`;
+          return;
+        }
+        try {
+          const res        = await fetch(`/api/departures/nearby?lat=${nearest.lat}&lon=${nearest.lon}`);
+          const departures = await res.json();
+          renderDeparturesPanel(nearest.name, departures);
+        } catch (e) {
+          div.innerHTML = `<div class="nearby-empty">❌ Erreur réseau.</div>`;
+        }
+      },
+      (err) => {
+        div.innerHTML = `<div class="nearby-empty">❌ GPS indisponible : ${err.message}</div>`;
+      }
+    );
+  }
+
+  async watchBike(bikeId) {
+    this.stopWatch();
+    this.watchedBike = bikeId;
+    renderWatchStatus(bikeId);
+
+    const perm = await Notification.requestPermission().catch(() => "denied");
+
+    this.watchInterval = setInterval(async () => {
+      try {
+        const res  = await fetch(`/api/bike/status?bike_id=${bikeId}`);
+        const data = await res.json();
+        if (!data.in_flight) {
+          this.stopWatch();
+          const watchEl = document.getElementById("watchStatus");
+          if (watchEl) watchEl.innerHTML = `<div class="watch-arrived">✅ ${bikeId} est arrivé !</div>`;
+          if (perm === "granted") {
+            new Notification("🚲 Vélo arrivé !", {
+              body: `Le vélo ${bikeId} vient de se garer.`,
+              icon: "/icons/icon.svg",
+            });
+          } else {
+            showAlert(`🚲 Vélo ${bikeId} arrivé !`);
+          }
+        }
+      } catch (e) {
+        console.error("Watch poll error:", e);
+      }
+    }, 30_000);
+  }
+
+  stopWatch() {
+    if (this.watchInterval) { clearInterval(this.watchInterval); this.watchInterval = null; }
+    this.watchedBike = null;
   }
 
   checkNearbyArrivals() {
