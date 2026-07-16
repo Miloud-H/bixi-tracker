@@ -425,13 +425,17 @@ export function renderDeparturesPanel(stationName, departures) {
 
 // --- Watch status indicator ---
 
-export function renderWatchStatus(bikeId) {
+export function renderWatchStatus(bikeIds) {
   const el = document.getElementById("watchStatus");
-  el.innerHTML = `
+  if (!bikeIds || bikeIds.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = bikeIds.map((id) => `
     <div class="watch-active">
-      ⏱ Suivi&nbsp;<b>${bikeId}</b>
-      <button class="watch-stop" onclick="window.app.stopWatch()">✕</button>
-    </div>`;
+      ⏱ Suivi&nbsp;<b>${id}</b>
+      <button class="watch-stop" onclick="window.app.stopWatch('${id}')">✕</button>
+    </div>`).join("");
 }
 
 // --- Timeline player ---

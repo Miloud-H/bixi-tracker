@@ -36,9 +36,9 @@ class App {
     this.chartTab     = "hourly";
     this.activeSearch  = "";
     this.activeCity    = "montreal";
-    this.watchInterval    = null;
-    this.watchedBike      = null;
+    this.watches          = new Map(); // bikeId -> { interval }
     this.pushSubscription = null;
+    this._notifPermission = null;
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -380,9 +380,10 @@ class App {
   }
 
   async watchBike(bikeId) {
-    this.stopWatch();
-    this.watchedBike = bikeId;
-    renderWatchStatus(bikeId);
+    if (this.watches.has(bikeId)) return; // déjà suivi
+
+    this.watches.set(bikeId, { interval: null });
+    renderWatchStatus([...this.watches.keys()]);
 
     // Abonnement push serveur : fonctionne même app fermée / écran verrouillé.
     // Best-effort — si ça échoue (pas de SW, permission refusée, navigateur non
@@ -393,19 +394,14 @@ class App {
       console.error("Push subscribe failed, falling back to in-page polling only:", e);
     }
 
-    let notifPermission = "denied";
-    if (typeof Notification !== "undefined") {
-      notifPermission = await Notification.requestPermission().catch(() => "denied");
-    }
+    const notifPermission = await this._ensureNotifPermission();
 
-    this.watchInterval = setInterval(async () => {
+    const interval = setInterval(async () => {
       try {
         const res  = await fetch(`/api/bike/status?bike_id=${bikeId}`);
         const data = await res.json();
         if (!data.in_flight) {
-          this.stopWatch();
-          const watchEl = document.getElementById("watchStatus");
-          if (watchEl) watchEl.innerHTML = `<div class="watch-arrived">✅ ${bikeId} est arrivé !</div>`;
+          this.stopWatch(bikeId);
           if (notifPermission === "granted") {
             new Notification("🚲 Vélo arrivé !", {
               body: `Le vélo ${bikeId} vient de se garer.`,
@@ -419,6 +415,17 @@ class App {
         console.error("Watch poll error:", e);
       }
     }, 30_000);
+
+    const w = this.watches.get(bikeId);
+    if (w) w.interval = interval;
+    else clearInterval(interval); // annulé pendant l'abonnement push
+  }
+
+  async _ensureNotifPermission() {
+    if (typeof Notification === "undefined") return "denied";
+    if (this._notifPermission) return this._notifPermission;
+    this._notifPermission = await Notification.requestPermission().catch(() => "denied");
+    return this._notifPermission;
   }
 
   async _subscribePush(bikeId) {
@@ -444,17 +451,26 @@ class App {
     });
   }
 
-  stopWatch() {
-    if (this.watchInterval) { clearInterval(this.watchInterval); this.watchInterval = null; }
-    if (this.pushSubscription && this.watchedBike) {
+  stopWatch(bikeId) {
+    if (bikeId === undefined) {
+      for (const id of [...this.watches.keys()]) this.stopWatch(id);
+      return;
+    }
+
+    const w = this.watches.get(bikeId);
+    if (!w) return;
+    if (w.interval) clearInterval(w.interval);
+    this.watches.delete(bikeId);
+
+    if (this.pushSubscription) {
       fetch("/api/push/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bike_id: this.watchedBike, endpoint: this.pushSubscription.endpoint }),
+        body: JSON.stringify({ bike_id: bikeId, endpoint: this.pushSubscription.endpoint }),
       }).catch(() => {});
     }
-    this.pushSubscription = null;
-    this.watchedBike = null;
+
+    renderWatchStatus([...this.watches.keys()]);
   }
 
   checkNearbyArrivals() {

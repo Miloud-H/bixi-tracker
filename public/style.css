@@ -332,15 +332,6 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   padding: 0 2px;
 }
 .watch-stop:hover { color: var(--text); }
-.watch-arrived {
-  background: color-mix(in srgb, #00e676 15%, transparent);
-  border: 1px solid #00e676;
-  border-radius: 7px;
-  padding: 7px 10px;
-  font-size: 12px;
-  margin-top: 6px;
-  color: var(--text);
-}
 
 #themeToggle {
   background: var(--btn-bg);
