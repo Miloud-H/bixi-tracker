@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v3';
+const CACHE = 'bixi-v4';
 const STATIC = [
   '/',
   '/index.html',
@@ -67,6 +67,34 @@ self.addEventListener('fetch', e => {
         }
         return res;
       });
+    })
+  );
+});
+
+// Notification push envoyée par le serveur (fonctionne même app fermée / écran verrouillé)
+self.addEventListener('push', e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) { /* payload non-JSON, on ignore */ }
+
+  const title = data.title || '🚲 Vélo arrivé !';
+  const body  = data.body  || 'Le vélo suivi est revenu dans le flux.';
+
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      tag: 'bixi-watch',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then(clientList => {
+      if (clientList.length > 0) return clientList[0].focus();
+      return self.clients.openWindow('/');
     })
   );
 });

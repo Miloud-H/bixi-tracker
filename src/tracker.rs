@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use geo::{point, Distance, Haversine};
 use rusqlite::params;
+use web_push_native::jwt_simple::algorithms::ES256KeyPair;
 
 use crate::db::DbPool;
 use crate::models::{Bike, BikeState, GbfsResponse, InFlightBikes};
+use crate::push;
 
 const GBFS_URL: &str = "https://gbfs.velobixi.com/gbfs/en/free_bike_status.json";
 const POLL_INTERVAL_SECS: u64 = 30;
@@ -200,7 +203,7 @@ fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     speed_kmh >= 3.0 && speed_kmh < 50.0
 }
 
-pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
+pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256KeyPair>) {
     let client = reqwest::Client::new();
     let mut positions = load_positions(&pool);
     load_in_flight(&in_flight);
@@ -267,8 +270,16 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                     }
                     disappeared_at.retain(|id, _| !available_ids.contains(id.as_str()));
 
-                    {
+                    let just_returned: Vec<String> = {
                         let mut flight = in_flight.write().unwrap();
+
+                        // Bikes that were in-flight and are visible again in this poll —
+                        // captured before mutation so watchers can be notified below.
+                        let just_returned: Vec<String> = flight.keys()
+                            .filter(|id| available_ids.contains(id.as_str()))
+                            .cloned()
+                            .collect();
+
                         for (id, &first_absent) in &disappeared_at {
                             if (now - first_absent).num_seconds() >= MIN_ABSENT_SECS
                                 && !flight.contains_key(id)
@@ -288,6 +299,12 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes) {
                             disappeared_at.contains_key(id)
                                 && (now - *start).num_minutes() < 120
                         });
+
+                        just_returned
+                    };
+
+                    for id in &just_returned {
+                        push::notify_bike_returned(&pool, &client, &vapid_key, id).await;
                     }
 
                     let new_trips = insert_trips(&pool, &detected, &now.to_rfc3339());

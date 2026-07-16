@@ -1,6 +1,7 @@
 mod cache;
 mod db;
 mod models;
+mod push;
 mod routes;
 mod tracker;
 mod zones;
@@ -9,7 +10,10 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use tokio::net::TcpListener;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
@@ -17,13 +21,15 @@ use tower_http::services::ServeDir;
 
 use cache::ApiCache;
 use models::{Flow, HeatPoint, InFlightBikes};
+use push::load_or_create_vapid_key;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub pool:        db::DbPool,
-    pub in_flight:   InFlightBikes,
-    pub flow_cache:  Arc<ApiCache<Vec<Flow>>>,
-    pub heat_cache:  Arc<ApiCache<Vec<HeatPoint>>>,
+    pub pool:             db::DbPool,
+    pub in_flight:        InFlightBikes,
+    pub flow_cache:       Arc<ApiCache<Vec<Flow>>>,
+    pub heat_cache:       Arc<ApiCache<Vec<HeatPoint>>>,
+    pub vapid_public_key: String,
 }
 
 #[tokio::main]
@@ -33,10 +39,14 @@ async fn main() {
 
     let in_flight: InFlightBikes = Arc::new(RwLock::new(HashMap::new()));
 
+    let vapid_key = Arc::new(load_or_create_vapid_key());
+    let vapid_public_key = push::public_key_b64(&vapid_key);
+
     let tracker_pool      = pool.clone();
     let tracker_in_flight = in_flight.clone();
+    let tracker_vapid     = vapid_key.clone();
     tokio::spawn(async move {
-        tracker::run(tracker_pool, tracker_in_flight).await;
+        tracker::run(tracker_pool, tracker_in_flight, tracker_vapid).await;
     });
 
     let state = AppState {
@@ -44,6 +54,7 @@ async fn main() {
         in_flight,
         flow_cache: ApiCache::new(300),
         heat_cache: ApiCache::new(300),
+        vapid_public_key,
     };
 
     let app = Router::new()
@@ -55,6 +66,9 @@ async fn main() {
         .route("/api/history",            get(routes::get_history))
         .route("/api/departures/nearby",  get(routes::get_departures_nearby))
         .route("/api/bike/status",        get(routes::get_bike_status))
+        .route("/api/push/vapid-public-key", get(routes::get_vapid_key))
+        .route("/api/push/subscribe",        post(routes::post_push_subscribe))
+        .route("/api/push/unsubscribe",      post(routes::post_push_unsubscribe))
         .with_state(state)
         .fallback_service(ServeDir::new("public"))
         .layer(CompressionLayer::new())

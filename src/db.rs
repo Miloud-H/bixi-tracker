@@ -34,7 +34,18 @@ pub fn init_schema(pool: &DbPool) -> Result<()> {
             lat        REAL NOT NULL,
             lon        REAL NOT NULL,
             seen_at    TEXT NOT NULL
-        );",
+        );
+
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            bike_id    TEXT NOT NULL,
+            endpoint   TEXT NOT NULL,
+            p256dh     TEXT NOT NULL,
+            auth       TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(bike_id, endpoint)
+        );
+        CREATE INDEX IF NOT EXISTS idx_push_bike_id ON push_subscriptions(bike_id);",
     )?;
 
     Ok(())

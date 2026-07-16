@@ -10,6 +10,7 @@ Cargo.lock
 *.db-shm
 *.db-wal
 in_flight.json
+vapid_key.pem
 
 # Éditeurs
 .vscode/

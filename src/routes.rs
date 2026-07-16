@@ -9,7 +9,8 @@ use chrono_tz::America::Montreal;
 use crate::models::{
     ActiveStats, BikeStatus, BikeStatusQuery, DayStats, DepartingBike,
     Flow, FlowQuery, HeatPoint, HeatQuery, HistoryQuery,
-    NearbyQuery, Trip, TripQuery, Zone, ZoneQuery,
+    NearbyQuery, SubscribeRequest, Trip, TripQuery, UnsubscribeRequest,
+    VapidKeyResponse, Zone, ZoneQuery,
 };
 use crate::AppState;
 
@@ -285,6 +286,58 @@ pub async fn get_bike_status(
         .map(|f| f.contains_key(&params.bike_id))
         .unwrap_or(false);
     Json(BikeStatus { in_flight })
+}
+
+// --- Push notifications ---
+
+pub async fn get_vapid_key(State(state): State<AppState>) -> Json<VapidKeyResponse> {
+    Json(VapidKeyResponse { public_key: state.vapid_public_key.clone() })
+}
+
+pub async fn post_push_subscribe(
+    State(state): State<AppState>,
+    Json(body): Json<SubscribeRequest>,
+) -> StatusCode {
+    let conn = match state.pool.get() {
+        Ok(c) => c,
+        Err(e) => { eprintln!("DB pool error in post_push_subscribe: {e}"); return StatusCode::INTERNAL_SERVER_ERROR; }
+    };
+
+    let res = conn.execute(
+        "INSERT INTO push_subscriptions (bike_id, endpoint, p256dh, auth, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(bike_id, endpoint) DO UPDATE SET p256dh=?3, auth=?4",
+        rusqlite::params![
+            body.bike_id,
+            body.subscription.endpoint,
+            body.subscription.keys.p256dh,
+            body.subscription.keys.auth,
+            Utc::now().to_rfc3339(),
+        ],
+    );
+
+    match res {
+        Ok(_) => StatusCode::CREATED,
+        Err(e) => { eprintln!("DB insert error in post_push_subscribe: {e}"); StatusCode::INTERNAL_SERVER_ERROR }
+    }
+}
+
+pub async fn post_push_unsubscribe(
+    State(state): State<AppState>,
+    Json(body): Json<UnsubscribeRequest>,
+) -> StatusCode {
+    let conn = match state.pool.get() {
+        Ok(c) => c,
+        Err(e) => { eprintln!("DB pool error in post_push_unsubscribe: {e}"); return StatusCode::INTERNAL_SERVER_ERROR; }
+    };
+
+    match conn.execute(
+        "DELETE FROM push_subscriptions WHERE bike_id = ?1 AND endpoint = ?2",
+        rusqlite::params![body.bike_id, body.endpoint],
+    ) {
+        Ok(_) => StatusCode::OK,
+        Err(e) => { eprintln!("DB delete error in post_push_unsubscribe: {e}"); StatusCode::INTERNAL_SERVER_ERROR }
+    }
 }
 
 // --- Historique ---

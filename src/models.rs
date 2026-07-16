@@ -96,6 +96,37 @@ pub struct BikeStatusQuery {
     pub bike_id: String,
 }
 
+// --- Push subscriptions ---
+
+#[derive(Serialize)]
+pub struct VapidKeyResponse {
+    pub public_key: String,
+}
+
+#[derive(Deserialize)]
+pub struct PushKeys {
+    pub p256dh: String,
+    pub auth:   String,
+}
+
+#[derive(Deserialize)]
+pub struct PushSubscriptionJson {
+    pub endpoint: String,
+    pub keys:     PushKeys,
+}
+
+#[derive(Deserialize)]
+pub struct SubscribeRequest {
+    pub bike_id:      String,
+    pub subscription: PushSubscriptionJson,
+}
+
+#[derive(Deserialize)]
+pub struct UnsubscribeRequest {
+    pub bike_id:  String,
+    pub endpoint: String,
+}
+
 // --- Zone Atlas ---
 
 #[derive(Serialize)]

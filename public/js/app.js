@@ -16,6 +16,13 @@ const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_informatio
 const RELOAD_INTERVAL_MS = 30_000;
 const ACTIVE_INTERVAL_MS = 35_000;
 
+function urlBase64ToUint8Array(base64Url) {
+  const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
+  const base64  = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
 class App {
   constructor() {
     this.map          = initMap();
@@ -29,8 +36,9 @@ class App {
     this.chartTab     = "hourly";
     this.activeSearch  = "";
     this.activeCity    = "montreal";
-    this.watchInterval = null;
-    this.watchedBike   = null;
+    this.watchInterval    = null;
+    this.watchedBike      = null;
+    this.pushSubscription = null;
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -376,7 +384,19 @@ class App {
     this.watchedBike = bikeId;
     renderWatchStatus(bikeId);
 
-    const perm = await Notification.requestPermission().catch(() => "denied");
+    // Abonnement push serveur : fonctionne même app fermée / écran verrouillé.
+    // Best-effort — si ça échoue (pas de SW, permission refusée, navigateur non
+    // compatible), le polling ci-dessous reste un filet de sécurité tant que l'onglet est ouvert.
+    try {
+      await this._subscribePush(bikeId);
+    } catch (e) {
+      console.error("Push subscribe failed, falling back to in-page polling only:", e);
+    }
+
+    let notifPermission = "denied";
+    if (typeof Notification !== "undefined") {
+      notifPermission = await Notification.requestPermission().catch(() => "denied");
+    }
 
     this.watchInterval = setInterval(async () => {
       try {
@@ -386,7 +406,7 @@ class App {
           this.stopWatch();
           const watchEl = document.getElementById("watchStatus");
           if (watchEl) watchEl.innerHTML = `<div class="watch-arrived">✅ ${bikeId} est arrivé !</div>`;
-          if (perm === "granted") {
+          if (notifPermission === "granted") {
             new Notification("🚲 Vélo arrivé !", {
               body: `Le vélo ${bikeId} vient de se garer.`,
               icon: "/icons/icon.svg",
@@ -401,8 +421,39 @@ class App {
     }, 30_000);
   }
 
+  async _subscribePush(bikeId) {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+
+    if (!sub) {
+      const { public_key } = await fetch("/api/push/vapid-public-key").then((r) => r.json());
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(public_key),
+      });
+    }
+
+    this.pushSubscription = sub;
+
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bike_id: bikeId, subscription: sub.toJSON() }),
+    });
+  }
+
   stopWatch() {
     if (this.watchInterval) { clearInterval(this.watchInterval); this.watchInterval = null; }
+    if (this.pushSubscription && this.watchedBike) {
+      fetch("/api/push/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bike_id: this.watchedBike, endpoint: this.pushSubscription.endpoint }),
+      }).catch(() => {});
+    }
+    this.pushSubscription = null;
     this.watchedBike = null;
   }
 
