@@ -12,10 +12,13 @@ use crate::models::{Bike, BikeState, GbfsResponse, InFlightBikes};
 use crate::push::{self, ReturnedBike};
 
 const GBFS_URL: &str = "https://gbfs.velobixi.com/gbfs/en/free_bike_status.json";
-const POLL_INTERVAL_SECS: u64 = 30;
+const POLL_INTERVAL_SECS: u64 = 15;
 const IN_FLIGHT_PATH: &str = "in_flight.json";
 
-const MIN_ABSENT_SECS: i64 = 90;
+// Un vélo doit être absent du flux GBFS pendant ce délai avant d'être considéré
+// "parti" — filtre les accrocs ponctuels du flux (un vélo qui disparaît une
+// itération puis revient sans avoir vraiment bougé).
+const MIN_ABSENT_SECS: i64 = 45;
 
 fn is_valid_position(lat: f64, lon: f64) -> bool {
     (45.0..=46.0).contains(&lat) && (-74.5..=-71.5).contains(&lon)
@@ -209,7 +212,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256Key
     load_in_flight(&in_flight);
     let mut disappeared_at: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut polls_since_cleanup = 0u32;
-    const CLEANUP_EVERY_N_POLLS: u32 = 120;
+    const CLEANUP_EVERY_N_POLLS: u32 = 240; // ~1h avec un poll toutes les 15s
 
     println!("Tracker BIXI started");
 
