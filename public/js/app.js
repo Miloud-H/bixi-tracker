@@ -39,6 +39,8 @@ class App {
     this.watches          = new Map(); // bikeId -> { interval }
     this.pushSubscription = null;
     this._notifPermission = null;
+    this.lastDepartures        = null; // dernière réponse /api/departures/nearby
+    this.lastDeparturesStation = null;
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -343,6 +345,7 @@ class App {
     resetLayerStyles(this.tripsLayer);
     if (this.focusLayer) { this.map.removeLayer(this.focusLayer); this.focusLayer = null; }
     document.getElementById("nearbyResults").innerHTML    = "";
+    this.lastDepartures = null; // avant stopWatch() : évite de re-peupler la liste qu'on vide
     document.getElementById("departureResults").innerHTML = "";
     document.getElementById("bikeResults").innerHTML      = "";
     this.stopWatch();
@@ -407,15 +410,32 @@ class App {
         try {
           const res        = await fetch(`/api/departures/nearby?lat=${nearest.lat}&lon=${nearest.lon}`);
           const departures = await res.json();
-          renderDeparturesPanel(nearest.name, departures);
+          this.lastDepartures        = departures;
+          this.lastDeparturesStation = nearest.name;
+          this._renderDepartures();
         } catch (e) {
+          this.lastDepartures = null;
           div.innerHTML = `<div class="nearby-empty">❌ Erreur réseau.</div>`;
         }
       },
       (err) => {
+        this.lastDepartures = null;
         div.innerHTML = `<div class="nearby-empty">❌ GPS indisponible : ${err.message}</div>`;
       }
     );
+  }
+
+  // Ré-affiche le dernier fetch de départs en masquant les vélos déjà suivis.
+  _renderDepartures() {
+    if (!this.lastDepartures) return;
+    const visible = this.lastDepartures.filter((d) => !this.watches.has(d.bike_id));
+
+    if (visible.length === 0 && this.lastDepartures.length > 0) {
+      document.getElementById("departureResults").innerHTML =
+        `<div class="nearby-empty">✅ Tous les départs visibles sont déjà suivis.</div>`;
+      return;
+    }
+    renderDeparturesPanel(this.lastDeparturesStation, visible);
   }
 
   async watchBike(bikeId) {
@@ -423,6 +443,7 @@ class App {
 
     this.watches.set(bikeId, { interval: null });
     renderWatchStatus([...this.watches.keys()]);
+    this._renderDepartures();
 
     // Abonnement push serveur : fonctionne même app fermée / écran verrouillé.
     // Best-effort — si ça échoue (pas de SW, permission refusée, navigateur non
@@ -440,7 +461,7 @@ class App {
         const res  = await fetch(`/api/bike/status?bike_id=${bikeId}`);
         const data = await res.json();
         if (!data.in_flight) {
-          this.stopWatch(bikeId);
+          this.stopWatch(bikeId, { arrived: true });
           if (notifPermission === "granted") {
             new Notification("🚲 Vélo arrivé !", {
               body: `Le vélo ${bikeId} vient de se garer.`,
@@ -490,7 +511,10 @@ class App {
     });
   }
 
-  stopWatch(bikeId) {
+  // arrived: true quand appelé parce que le vélo suivi est réapparu dans le flux
+  // (il ne doit pas revenir dans "Départs") — false pour une annulation manuelle
+  // (il redevient disponible pour être suivi).
+  stopWatch(bikeId, { arrived = false } = {}) {
     if (bikeId === undefined) {
       for (const id of [...this.watches.keys()]) this.stopWatch(id);
       return;
@@ -509,7 +533,12 @@ class App {
       }).catch(() => {});
     }
 
+    if (arrived && this.lastDepartures) {
+      this.lastDepartures = this.lastDepartures.filter((d) => d.bike_id !== bikeId);
+    }
+
     renderWatchStatus([...this.watches.keys()]);
+    this._renderDepartures();
   }
 
   checkNearbyArrivals() {
