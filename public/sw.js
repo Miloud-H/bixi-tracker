@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v5';
+const CACHE = 'bixi-v6';
 const STATIC = [
   '/',
   '/index.html',
@@ -95,31 +95,40 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   const data = e.notification.data || {};
 
+  const params = new URLSearchParams();
+  if (data.lat != null && data.lon != null) {
+    params.set('focusLat', data.lat);
+    params.set('focusLon', data.lon);
+  }
+  if (data.depLat != null && data.depLon != null) {
+    params.set('focusDepLat', data.depLat);
+    params.set('focusDepLon', data.depLon);
+  }
+  if (data.bikeId) params.set('focusBike', data.bikeId);
+  const targetUrl = params.toString() ? `/?${params}` : '/';
+
   e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      const appClient = clientList.find(c => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async clientList => {
+      const indexClient = clientList.find(c => {
         const path = new URL(c.url).pathname;
         return path === '/' || path.endsWith('/index.html');
       });
 
-      if (appClient) {
-        appClient.postMessage({ type: 'bike-arrived', ...data });
-        return appClient.focus();
+      // La carte principale est déjà ouverte : on lui passe les coordonnées
+      // directement (pas de rechargement), et on la met au premier plan.
+      if (indexClient) {
+        indexClient.postMessage({ type: 'bike-arrived', ...data });
+        return indexClient.focus();
       }
 
-      const params = new URLSearchParams();
-      if (data.lat != null && data.lon != null) {
-        params.set('focusLat', data.lat);
-        params.set('focusLon', data.lon);
+      // Une autre page de l'app est ouverte (atlas/heatmap/historique) : on la
+      // redirige vers la carte principale au lieu d'ouvrir un onglet en plus.
+      if (clientList.length > 0 && 'navigate' in clientList[0]) {
+        const client = await clientList[0].focus();
+        return client.navigate(targetUrl);
       }
-      if (data.depLat != null && data.depLon != null) {
-        params.set('focusDepLat', data.depLat);
-        params.set('focusDepLon', data.depLon);
-      }
-      if (data.bikeId) params.set('focusBike', data.bikeId);
 
-      const url = params.toString() ? `/?${params}` : '/';
-      return self.clients.openWindow(url);
+      return self.clients.openWindow(targetUrl);
     })
   );
 });
