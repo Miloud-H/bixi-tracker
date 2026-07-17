@@ -55,6 +55,45 @@ class App {
     this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
 
     this.bindEvents();
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", (e) => {
+        if (e.data?.type === "bike-arrived") this._focusBikeArrival(e.data);
+      });
+    }
+    this._focusFromUrlParams();
+  }
+
+  // Vélo localisé via une notification push (onglet déjà ouvert -> message,
+  // onglet fermé -> paramètres d'URL après ouverture d'une nouvelle fenêtre).
+  _focusBikeArrival({ lat, lon, depLat, depLon, bikeId }) {
+    lat = parseFloat(lat); lon = parseFloat(lon);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+
+    depLat = parseFloat(depLat); depLon = parseFloat(depLon);
+    if (!Number.isNaN(depLat) && !Number.isNaN(depLon)) {
+      this.focusTrip(depLat, depLon, lat, lon);
+      this.map.fitBounds([[depLat, depLon], [lat, lon]], { padding: [60, 60] });
+    } else {
+      this.map.setView([lat, lon], 17);
+    }
+
+    showAlert(bikeId ? `🚲 ${bikeId} arrivé ici` : "🚲 Vélo arrivé ici");
+  }
+
+  _focusFromUrlParams() {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("focusLat")) return;
+
+    this._focusBikeArrival({
+      lat:    params.get("focusLat"),
+      lon:    params.get("focusLon"),
+      depLat: params.get("focusDepLat"),
+      depLon: params.get("focusDepLon"),
+      bikeId: params.get("focusBike"),
+    });
+
+    history.replaceState(null, "", location.pathname);
   }
 
   filteredTrips() {

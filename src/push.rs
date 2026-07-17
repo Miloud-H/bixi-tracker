@@ -48,6 +48,16 @@ pub struct PushTarget {
     pub auth:     String,
 }
 
+/// A bike that just reappeared in the GBFS feed after being in-flight.
+pub struct ReturnedBike {
+    pub bike_id:     String,
+    pub dep_lat:     f64,
+    pub dep_lon:     f64,
+    pub arr_lat:     f64,
+    pub arr_lon:     f64,
+    pub elapsed_min: i64,
+}
+
 pub enum PushOutcome {
     Sent,
     /// Push service reports the subscription no longer exists (404/410) — drop it.
@@ -56,11 +66,10 @@ pub enum PushOutcome {
 }
 
 pub async fn send_push(
-    client: &Client,
-    vapid:  &ES256KeyPair,
-    target: &PushTarget,
-    title:  &str,
-    body:   &str,
+    client:  &Client,
+    vapid:   &ES256KeyPair,
+    target:  &PushTarget,
+    payload: &serde_json::Value,
 ) -> PushOutcome {
     let Ok(endpoint) = target.endpoint.parse() else { return PushOutcome::Failed };
 
@@ -76,9 +85,7 @@ pub async fn send_push(
     let builder = WebPushBuilder::new(endpoint, ua_public, ua_auth)
         .with_vapid(vapid, VAPID_CONTACT);
 
-    let payload = serde_json::json!({ "title": title, "body": body }).to_string();
-
-    let request = match builder.build(payload.into_bytes()) {
+    let request = match builder.build(payload.to_string().into_bytes()) {
         Ok(r) => r,
         Err(e) => { eprintln!("Push build error: {e}"); return PushOutcome::Failed; }
     };
@@ -96,9 +103,15 @@ pub async fn send_push(
     }
 }
 
-/// Notify every browser watching `bike_id`, then clear those subscriptions —
+/// Notify every browser watching this bike, then clear those subscriptions —
 /// the watch is one-shot, whether the push actually reached the device or not.
-pub async fn notify_bike_returned(pool: &DbPool, client: &Client, vapid: &ES256KeyPair, bike_id: &str) {
+pub async fn notify_bike_returned(
+    pool:       &DbPool,
+    client:     &Client,
+    vapid:      &ES256KeyPair,
+    bike:       &ReturnedBike,
+    distance_m: Option<f64>,
+) {
     let targets: Vec<PushTarget> = {
         let conn = match pool.get() {
             Ok(c) => c,
@@ -110,7 +123,7 @@ pub async fn notify_bike_returned(pool: &DbPool, client: &Client, vapid: &ES256K
             Ok(s) => s,
             Err(e) => { eprintln!("DB prepare error in notify_bike_returned: {e}"); return; }
         };
-        let rows = stmt.query_map([bike_id], |row| {
+        let rows = stmt.query_map([&bike.bike_id], |row| {
             Ok(PushTarget {
                 endpoint: row.get(0)?,
                 p256dh:   row.get(1)?,
@@ -127,19 +140,31 @@ pub async fn notify_bike_returned(pool: &DbPool, client: &Client, vapid: &ES256K
         return;
     }
 
-    let title = "🚲 Vélo arrivé !";
-    let body  = format!("Le vélo {bike_id} vient de se garer.");
+    let body = match distance_m {
+        Some(d) if d > 0.0 => format!("A parcouru {:.0} m en {} min et vient de se garer.", d, bike.elapsed_min.max(0)),
+        _ => format!("Vient de se garer après {} min.", bike.elapsed_min.max(0)),
+    };
+
+    let payload = serde_json::json!({
+        "title":   format!("🚲 Vélo {} arrivé !", bike.bike_id),
+        "body":    body,
+        "bikeId":  bike.bike_id,
+        "depLat":  bike.dep_lat,
+        "depLon":  bike.dep_lon,
+        "lat":     bike.arr_lat,
+        "lon":     bike.arr_lon,
+    });
 
     for target in &targets {
-        match send_push(client, vapid, target, title, &body).await {
+        match send_push(client, vapid, target, &payload).await {
             PushOutcome::Sent  => {}
             PushOutcome::Gone  => {}
-            PushOutcome::Failed => eprintln!("Push failed for bike {bike_id}"),
+            PushOutcome::Failed => eprintln!("Push failed for bike {}", bike.bike_id),
         }
     }
 
     if let Ok(conn) = pool.get() {
-        if let Err(e) = conn.execute("DELETE FROM push_subscriptions WHERE bike_id = ?1", [bike_id]) {
+        if let Err(e) = conn.execute("DELETE FROM push_subscriptions WHERE bike_id = ?1", [&bike.bike_id]) {
             eprintln!("DB delete error in notify_bike_returned: {e}");
         }
     }

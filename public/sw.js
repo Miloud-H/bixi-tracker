@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v4';
+const CACHE = 'bixi-v5';
 const STATIC = [
   '/',
   '/index.html',
@@ -84,17 +84,42 @@ self.addEventListener('push', e => {
       body,
       icon: '/icons/icon.svg',
       badge: '/icons/icon.svg',
-      tag: 'bixi-watch',
+      // Un tag par vélo : plusieurs suivis simultanés ne doivent pas s'écraser.
+      tag: `bixi-watch-${data.bikeId || Date.now()}`,
+      data,
     })
   );
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  const data = e.notification.data || {};
+
   e.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then(clientList => {
-      if (clientList.length > 0) return clientList[0].focus();
-      return self.clients.openWindow('/');
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      const appClient = clientList.find(c => {
+        const path = new URL(c.url).pathname;
+        return path === '/' || path.endsWith('/index.html');
+      });
+
+      if (appClient) {
+        appClient.postMessage({ type: 'bike-arrived', ...data });
+        return appClient.focus();
+      }
+
+      const params = new URLSearchParams();
+      if (data.lat != null && data.lon != null) {
+        params.set('focusLat', data.lat);
+        params.set('focusLon', data.lon);
+      }
+      if (data.depLat != null && data.depLon != null) {
+        params.set('focusDepLat', data.depLat);
+        params.set('focusDepLon', data.depLon);
+      }
+      if (data.bikeId) params.set('focusBike', data.bikeId);
+
+      const url = params.toString() ? `/?${params}` : '/';
+      return self.clients.openWindow(url);
     })
   );
 });
