@@ -321,7 +321,7 @@ class App {
         else l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.15 });
       } else if (l instanceof L.CircleMarker) {
         l.setStyle({ opacity: isMatch ? 1 : 0.15, fillOpacity: isMatch ? 1 : 0.15 });
-      } else if (l.getElement) {
+      } else if (l.getElement && l.getElement()) {
         l.getElement().style.opacity = isMatch ? "1" : "0.15";
       }
     });

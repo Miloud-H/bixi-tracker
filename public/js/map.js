@@ -103,7 +103,7 @@ export function highlightGroup(layer, groupId) {
         l.bringToFront();
       } else if (l instanceof L.CircleMarker) {
         l.setStyle({ opacity: 1, fillOpacity: 1 });
-      } else if (l.getElement) { // Pour les Markers (flèches)
+      } else if (l.getElement && l.getElement()) { // Pour les Markers (flèches)
         l.getElement().style.opacity = "1";
       }
     } else {
@@ -111,7 +111,7 @@ export function highlightGroup(layer, groupId) {
         l.setStyle({ color: "#bdc3c7", weight: 1, opacity: 0.2 });
       } else if (l instanceof L.CircleMarker) {
         l.setStyle({ opacity: 0.2, fillOpacity: 0.2 });
-      } else if (l.getElement) {
+      } else if (l.getElement && l.getElement()) {
         l.getElement().style.opacity = "0.2";
       }
     }
@@ -130,7 +130,7 @@ export function resetLayerStyles(layer) {
       });
     } else if (l instanceof L.CircleMarker) {
       l.setStyle({ opacity: 1, fillOpacity: 1 });
-    } else if (l.getElement) {
+    } else if (l.getElement && l.getElement()) {
       l.getElement().style.opacity = "1";
     }
   });
