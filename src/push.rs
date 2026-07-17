@@ -2,7 +2,7 @@ use std::fs;
 
 use base64ct::{Base64UrlUnpadded, Encoding};
 use reqwest::Client;
-use web_push_native::jwt_simple::algorithms::ES256KeyPair;
+use web_push_native::jwt_simple::algorithms::{ECDSAP256PublicKeyLike, ES256KeyPair};
 use web_push_native::p256::PublicKey;
 use web_push_native::{Auth, WebPushBuilder};
 
@@ -34,8 +34,12 @@ pub fn load_or_create_vapid_key() -> ES256KeyPair {
     kp
 }
 
+/// The browser's PushManager.subscribe requires the *uncompressed* SEC1 point
+/// (0x04 || X || Y, 65 bytes) — ES256PublicKey::to_bytes() returns the
+/// compressed 33-byte form instead, which the browser rejects outright.
 pub fn public_key_b64(kp: &ES256KeyPair) -> String {
-    Base64UrlUnpadded::encode_string(&kp.public_key().to_bytes())
+    let bytes = kp.public_key().public_key().to_bytes_uncompressed();
+    Base64UrlUnpadded::encode_string(&bytes)
 }
 
 pub struct PushTarget {
