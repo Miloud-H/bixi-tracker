@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v6';
+const CACHE = 'bixi-v7';
 const STATIC = [
   '/',
   '/index.html',
@@ -37,6 +37,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // La Cache API ne gère que GET (ex: POST /api/push/subscribe plantait sur
+  // cache.put) — et un fallback offline n'a de toute façon aucun sens pour
+  // une requête qui mute des données côté serveur.
+  if (e.request.method !== 'GET') return;
+
   const { pathname } = new URL(e.request.url);
 
   // HTML et API : réseau en priorité, cache en fallback offline
