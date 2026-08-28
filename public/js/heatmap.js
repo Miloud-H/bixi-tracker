@@ -6,18 +6,30 @@ const CITIES = {
 const map = L.map('map', { zoomControl: false }).setView(CITIES.montreal.center, CITIES.montreal.zoom);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+// Esri World Gray Canvas — free, no API key. Each theme is a muted base map
+// plus a transparent labels overlay drawn on top of it.
 const TILES = {
-  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark: {
+    base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    ref:  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  },
+  light: {
+    base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    ref:  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  },
 };
-let tileLayer = L.tileLayer(TILES.dark, { attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 18 }).addTo(map);
+let tileLayers = null;
+let tilesTheme = null;
 
 function setTiles(theme) {
-  const url = TILES[theme] || TILES.dark;
-  if (tileLayer.options._url !== url) {
-    tileLayer.remove();
-    tileLayer = L.tileLayer(url, { attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 18 }).addTo(map);
-  }
+  if (theme === tilesTheme) return;
+  if (tileLayers) { tileLayers.base.remove(); tileLayers.ref.remove(); }
+  const t = TILES[theme] || TILES.dark;
+  tileLayers = {
+    base: L.tileLayer(t.base, { attribution: '&copy; Esri', maxZoom: 16 }).addTo(map),
+    ref:  L.tileLayer(t.ref,  { attribution: '&copy; Esri', maxZoom: 16 }).addTo(map),
+  };
+  tilesTheme = theme;
 }
 
 let allPoints  = [];

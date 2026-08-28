@@ -14,8 +14,15 @@ export function initMap() {
   const map = L.map("map", { zoomControl: false }).setView(MONTREAL_CENTER, 13);
   L.control.zoom({ position: "bottomleft" }).addTo(map);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
+  // Esri World Light Gray Canvas — free, no API key. Split in two services:
+  // muted base map + a transparent labels overlay drawn on top.
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "&copy; Esri",
+    maxZoom: 16,
+  }).addTo(map);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "&copy; Esri",
+    maxZoom: 16,
   }).addTo(map);
 
   return map;

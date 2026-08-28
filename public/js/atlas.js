@@ -33,16 +33,27 @@ function zoneLabel(name) {
 const map = L.map('map', { zoomControl: false }).setView([45.508, -73.587], 13);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+// Esri World Gray Canvas — free, no API key. Each theme is a muted base map
+// plus a transparent labels overlay drawn on top of it.
 const TILES = {
-  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark: {
+    base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    ref:  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  },
+  light: {
+    base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    ref:  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  },
 };
-let tileLayer = L.tileLayer(TILES.dark, { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+let tileLayers = null;
 
 function setTiles(theme) {
-  const url = TILES[theme] || TILES.dark;
-  tileLayer.remove();
-  tileLayer = L.tileLayer(url, { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
+  if (tileLayers) { tileLayers.base.remove(); tileLayers.ref.remove(); }
+  const t = TILES[theme] || TILES.dark;
+  tileLayers = {
+    base: L.tileLayer(t.base, { attribution: '&copy; Esri', maxZoom: 16 }).addTo(map),
+    ref:  L.tileLayer(t.ref,  { attribution: '&copy; Esri', maxZoom: 16 }).addTo(map),
+  };
 }
 
 let allFlows    = [];
