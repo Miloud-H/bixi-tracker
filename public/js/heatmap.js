@@ -71,7 +71,7 @@ function render() {
 async function loadData(date) {
   document.getElementById('loader').style.display = 'flex';
   try {
-    const base = `/api/heatmap?date=${date}&type=${tripType}`;
+    const base = `/api/heatmap?date=${date}&trip_type=${tripType}`;
     const url = weekMode ? `${base}&week=1` : base;
     allPoints = await fetch(url).then(r => r.json());
     render();
