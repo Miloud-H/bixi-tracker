@@ -78,7 +78,15 @@ pub const ZONES: &[(&str, f64, f64, &str)] = &[
     ("Sherbrooke_Portland",         45.4156, -71.8720, "sherbrooke"),
 ];
 
-const MAX_SNAP_KM: f64 = 0.6; // 600 m — au-delà, le trajet n'est rattaché à aucune zone
+// 900 m — au-delà, le trajet n'est rattaché à aucune zone.
+// Relevé le 2026-08-28 après analyse de 1,54M trajets : à 600 m, ~47% du trafic
+// tombait hors de toute zone, concentré dans les interstices entre zones voisines
+// (espacées d'~700 m par design) plutôt que dispersé au hasard. 900 m récupère ~47%
+// de ce volume non couvert (couverture globale ~53% → ~75%) sans avoir besoin de
+// nouvelles zones. Le reliquat (~27% du non-couvert, trajets à 1,5 km+ de toute
+// zone) est un vrai trou géographique — candidat pour de nouvelles zones, pas pour
+// un rayon encore plus généreux.
+const MAX_SNAP_KM: f64 = 0.9;
 
 pub fn haversine_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let dlat = (lat2 - lat1).to_radians();
