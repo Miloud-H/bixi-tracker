@@ -517,6 +517,7 @@ class App {
     this.watches.set(bikeId, { interval: null });
     renderWatchStatus([...this.watches.keys()]);
     this._renderDepartures();
+    this._syncInFlightMarkers();
 
     // Abonnement push serveur : fonctionne même app fermée / écran verrouillé.
     // Best-effort — si ça échoue (pas de SW, permission refusée, navigateur non
@@ -627,6 +628,17 @@ class App {
 
     renderWatchStatus([...this.watches.keys()]);
     this._renderDepartures();
+    this._syncInFlightMarkers();
+  }
+
+  // Redessine les marqueurs "En route" depuis les données déjà en cache
+  // (this.lastInFlight), sans nouveau fetch — pour que la popup reflète tout
+  // de suite un changement de statut de suivi (bouton "Suivre" <-> "✓ Suivi")
+  // au lieu d'attendre le prochain rafraîchissement (jusqu'à 35s).
+  _syncInFlightMarkers() {
+    if (!this.inFlightLayer || !this.lastInFlight) return;
+    this.map.removeLayer(this.inFlightLayer);
+    this.inFlightLayer = renderInFlight(this.map, this.lastInFlight, this.watches);
   }
 
   toggleWatchHistory() {

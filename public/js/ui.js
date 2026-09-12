@@ -566,7 +566,7 @@ export function renderWatchHistory(entries) {
     </div>`;
 
   if (!entries || entries.length === 0) {
-    div.innerHTML = header + `<div class="nearby-empty">Aucun suivi enregistré pour l'instant.</div>`;
+    div.innerHTML = header + `<div class="nearby-empty">Aucun vélo suivi n'est encore arrivé (les suivis en cours apparaissent en haut, en "⏱ Suivi").</div>`;
     return;
   }
 
