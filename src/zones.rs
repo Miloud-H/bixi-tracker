@@ -107,3 +107,40 @@ pub fn snap_nearest_for_city(lat: f64, lon: f64, city: &str) -> Option<&'static 
         .min_by(|(_, da), (_, db)| da.partial_cmp(db).unwrap())
         .map(|(name, _)| name)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn haversine_same_point_is_zero() {
+        assert_eq!(haversine_km(45.5, -73.5, 45.5, -73.5), 0.0);
+    }
+
+    #[test]
+    fn haversine_known_distance() {
+        // McGill (Edu_McGill) to Berri-UQAM (Transit_Berri_UQAM), roughly ~1.6 km apart.
+        let d = haversine_km(45.5042, -73.5760, 45.5155, -73.5610);
+        assert!(d > 1.3 && d < 1.9, "expected ~1.3-1.9 km, got {d}");
+    }
+
+    #[test]
+    fn snap_matches_exact_zone_coordinate() {
+        // Querying a zone's own centroid must snap to that zone.
+        let (name, lat, lon, city) = ZONES[0];
+        assert_eq!(snap_nearest_for_city(lat, lon, city), Some(name));
+    }
+
+    #[test]
+    fn snap_returns_none_beyond_radius() {
+        // The middle of the St. Lawrence, nowhere near any named zone.
+        assert_eq!(snap_nearest_for_city(45.50, -73.52, "montreal"), None);
+    }
+
+    #[test]
+    fn snap_respects_city_filter() {
+        // A Sherbrooke zone's own coordinates must not match under "montreal".
+        let (_, lat, lon, _) = ZONES.iter().find(|(_, _, _, c)| *c == "sherbrooke").unwrap();
+        assert_eq!(snap_nearest_for_city(*lat, *lon, "montreal"), None);
+    }
+}

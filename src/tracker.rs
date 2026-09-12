@@ -352,3 +352,69 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256Key
         tokio::time::sleep(Duration::from_secs(POLL_INTERVAL_SECS)).await;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bike(lat: f64, lon: f64) -> Bike {
+        Bike { bike_id: "T1".to_string(), lat, lon, is_reserved: 0, is_disabled: 0 }
+    }
+
+    #[test]
+    fn valid_trip_within_bounds() {
+        // 500 m in 5 min = 6 km/h — inside the 3-50 km/h window.
+        assert!(is_valid_trip(500.0, 300.0));
+    }
+
+    #[test]
+    fn rejects_trip_too_short() {
+        // The 100 m floor filters GPS jitter from a parked bike.
+        assert!(!is_valid_trip(100.0, 300.0));
+        assert!(!is_valid_trip(50.0, 300.0));
+    }
+
+    #[test]
+    fn rejects_zero_or_negative_duration() {
+        assert!(!is_valid_trip(500.0, 0.0));
+        assert!(!is_valid_trip(500.0, -10.0));
+    }
+
+    #[test]
+    fn rejects_trip_over_two_hours() {
+        assert!(!is_valid_trip(2000.0, 7201.0));
+    }
+
+    #[test]
+    fn rejects_implausible_speed() {
+        // Too slow to be riding (under 3 km/h) — likely a stationary GPS drift.
+        assert!(!is_valid_trip(110.0, 600.0));
+        // Too fast for a bike (50+ km/h) — likely a GPS jump or vehicle transport.
+        assert!(!is_valid_trip(5000.0, 100.0));
+    }
+
+    #[test]
+    fn normalize_coords_leaves_correct_order_untouched() {
+        let (lat, lon) = normalize_coords(&bike(45.5, -73.6));
+        assert_eq!((lat, lon), (45.5, -73.6));
+    }
+
+    #[test]
+    fn normalize_coords_swaps_inverted_pair() {
+        // Known GBFS quirk: some feeds report (lon, lat) instead of (lat, lon).
+        let (lat, lon) = normalize_coords(&bike(-73.6, 45.5));
+        assert_eq!((lat, lon), (45.5, -73.6));
+    }
+
+    #[test]
+    fn valid_position_accepts_montreal_and_sherbrooke() {
+        assert!(is_valid_position(45.5017, -73.5673)); // Montréal
+        assert!(is_valid_position(45.4040, -71.8929)); // Sherbrooke
+    }
+
+    #[test]
+    fn valid_position_rejects_out_of_range() {
+        assert!(!is_valid_position(0.0, 0.0));
+        assert!(!is_valid_position(45.5, -80.0));
+    }
+}

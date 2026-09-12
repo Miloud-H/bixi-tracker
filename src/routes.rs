@@ -440,3 +440,60 @@ fn assign_group_ids(trips: &mut Vec<Trip>) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn trip(start_time: &str, start_lat: f64, start_lon: f64, end_lat: f64, end_lon: f64) -> Trip {
+        Trip {
+            bike_id: "T1".to_string(),
+            start_time: start_time.to_string(),
+            start_lat, start_lon,
+            end_time: "2026-01-01T00:10:00+00:00".to_string(),
+            end_lat, end_lon,
+            distance: 500.0,
+            group_id: None,
+        }
+    }
+
+    #[test]
+    fn groups_trips_sharing_origin_destination_and_time_slot() {
+        let mut trips = vec![
+            trip("2026-01-01T08:00:00+00:00", 45.5, -73.5, 45.51, -73.51),
+            trip("2026-01-01T08:02:00+00:00", 45.5, -73.5, 45.51, -73.51), // same 5-min slot
+            trip("2026-01-01T09:00:00+00:00", 45.6, -73.6, 45.61, -73.61), // unrelated
+        ];
+        assign_group_ids(&mut trips);
+
+        assert!(trips[0].group_id.is_some());
+        assert_eq!(trips[0].group_id, trips[1].group_id, "same origin/destination/slot must share a group");
+        assert_eq!(trips[2].group_id, None, "a lone trip must not be grouped");
+    }
+
+    #[test]
+    fn does_not_group_trips_in_different_time_slots() {
+        let mut trips = vec![
+            trip("2026-01-01T08:00:00+00:00", 45.5, -73.5, 45.51, -73.51),
+            trip("2026-01-01T08:10:00+00:00", 45.5, -73.5, 45.51, -73.51), // same coords, different slot
+        ];
+        assign_group_ids(&mut trips);
+
+        assert_eq!(trips[0].group_id, None);
+        assert_eq!(trips[1].group_id, None);
+    }
+
+    #[test]
+    fn day_bounds_cover_roughly_24h_and_are_ordered() {
+        // Mid-July: comfortably clear of any DST transition.
+        let date = NaiveDate::from_ymd_opt(2026, 7, 15).unwrap();
+        let (start, end) = day_bounds_utc(date);
+
+        let start_dt = DateTime::parse_from_rfc3339(&start).unwrap();
+        let end_dt = DateTime::parse_from_rfc3339(&end).unwrap();
+
+        assert!(end_dt > start_dt);
+        let span_secs = (end_dt - start_dt).num_seconds();
+        assert!((86_000..=86_400).contains(&span_secs), "expected ~24h span, got {span_secs}s");
+    }
+}

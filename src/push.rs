@@ -169,3 +169,22 @@ pub async fn notify_bike_returned(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression test for the bug fixed in 63ebc4d: ES256PublicKey::to_bytes()
+    /// returns the *compressed* SEC1 point (33 bytes), which browsers reject
+    /// outright — PushManager.subscribe requires the uncompressed 65-byte point
+    /// (0x04 || X || Y).
+    #[test]
+    fn public_key_is_uncompressed_sec1_point() {
+        let kp = ES256KeyPair::generate();
+        let b64 = public_key_b64(&kp);
+        let bytes = Base64UrlUnpadded::decode_vec(&b64).expect("valid base64url");
+
+        assert_eq!(bytes.len(), 65, "must be the uncompressed point, not compressed (33 bytes)");
+        assert_eq!(bytes[0], 0x04, "uncompressed SEC1 points start with 0x04");
+    }
+}

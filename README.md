@@ -38,6 +38,14 @@ cargo run
 
 Server starts on `http://localhost:3000`. Static files are served from `public/`. On first run it generates `vapid_key.pem` (Web Push signing key) and `bixi_data.db` (SQLite) in the working directory — both gitignored; **never delete `vapid_key.pem` in production**, every browser's push subscription is bound to the public key it was created with.
 
+## Testing
+
+```bash
+cargo test
+```
+
+Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping, group detection, day-bounds math, and the VAPID key encoding — live alongside the code they test in `#[cfg(test)] mod tests` blocks. No test DB or network needed. CI runs this before every build; a failing test blocks deployment.
+
 ## Project Structure
 
 ```

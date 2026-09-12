@@ -190,3 +190,22 @@ pub struct HistoryQuery {
     pub from: Option<String>,  // YYYY-MM-DD, prioritaire sur days
     pub to:   Option<String>,  // YYYY-MM-DD exclusif
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression test for ece6e25: the frontend sent `type=arrivals`, but this
+    /// struct's field is `trip_type` — axum's Query extractor silently ignores
+    /// unknown params and defaults the missing one to None, so the arrivals
+    /// toggle had no effect at all. Locks in the actual wire field name.
+    #[test]
+    fn heat_query_field_is_trip_type_not_type() {
+        let q: HeatQuery = serde_urlencoded::from_str("date=2026-01-01&trip_type=arrivals").unwrap();
+        assert_eq!(q.trip_type, Some("arrivals".to_string()));
+
+        // The old buggy param name must NOT populate trip_type.
+        let q: HeatQuery = serde_urlencoded::from_str("date=2026-01-01&type=arrivals").unwrap();
+        assert_eq!(q.trip_type, None);
+    }
+}
