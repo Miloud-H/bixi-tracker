@@ -21,15 +21,19 @@
 ///     autour de Saint-Eustache) et 4 zones Longueuil (déploiement Rive-Sud complet,
 ///     pas une simple banlieue satellite).
 ///
-/// TODO — refresh système complet à faire (pas urgent, gros chantier) : en ré-appliquant
-/// les mêmes critères de validation ci-dessus sur le flux GBFS live du 2026-09-12
-/// (1081 stations dans le bucket "montreal", vs 1032 à la création des zones), 553
-/// stations (~51%) sont à plus de 900 m de toute zone existante, formant 96 clusters
-/// d'au moins 2 stations à moins de 600 m — y compris en plein Montréal central
-/// (ex. Villeray/Jarry : 13 stations, Hochelaga : 10, Rosemont : 8). Le réseau a
-/// visiblement beaucoup grandi depuis la dernière validation. Script de clustering :
-/// analysis/suburb_clustering.py (gitignoré). Mérite sa propre passe complète avec
-/// curation manuelle des noms/centroïdes, pas un ajout à la volée.
+/// Refresh système 2026-09-12 (suite) : ré-application des mêmes critères de
+/// validation sur le flux GBFS live a trouvé 89 clusters (≥2 stations à <600m,
+/// >900m de toute zone) sur 532 stations non couvertes du bucket "montreal".
+/// Palier traité maintenant : les 13 clusters ≥5 stations (96 stations, cf.
+/// section "Densification" ci-dessous). Restent en TODO — pas traités cette
+/// passe, volume plus faible par zone donc moins rentable :
+///   - 22 clusters de 3-4 stations (~70 stations)
+///   - 54 clusters de 2 stations (~108 stations)
+///   - 246 stations isolées, sans cluster (souvent 5-16 km de toute zone —
+///     Laval, Ouest-de-l'Île, Rive-Nord éloignée — probablement pas assez
+///     denses pour justifier une zone même en y revenant plus tard)
+/// Script de clustering : analysis/suburb_clustering.py (gitignoré, imprime
+/// aussi les noms de station par cluster pour la curation manuelle des noms).
 pub const ZONES: &[(&str, f64, f64, &str)] = &[
     // ── Montréal — Transit (5) ──────────────────────────────────────────
     ("Transit_Gare_Centrale",  45.5000, -73.5665, "montreal"), // 21 stations — REM / VIA / exo
@@ -84,6 +88,24 @@ pub const ZONES: &[(&str, f64, f64, &str)] = &[
     ("Res_CDN",             45.4960, -73.6310, "montreal"),
     // Notre-Dame-de-Grâce
     ("Res_NDG",             45.4720, -73.6305, "montreal"), //  2 stations
+
+    // ── Montréal — Densification 2026-09-12 (13) ───────────────────────
+    // Refresh système : clusters ≥5 stations trouvés >900m de toute zone
+    // existante sur le flux GBFS live (voir TODO ci-dessus). Chaque nom
+    // vérifié contre les stations membres du cluster (analysis/suburb_clustering.py).
+    ("Res_Parc_Jarry",       45.5433, -73.6318, "montreal"), // 13 stations — Parc Jarry / Métro Jarry-Crémazie
+    ("Res_Maisonneuve",      45.5499, -73.5484, "montreal"), // 10 stations — Marché Maisonneuve / Collège de Maisonneuve
+    ("Res_Pere_Marquette",   45.5387, -73.5899, "montreal"), //  8 stations — Parc du Père-Marquette (Rosemont)
+    ("Transit_Vendome",      45.4777, -73.6034, "montreal"), //  8 stations — Métro Vendôme (NDG/Westmount)
+    ("Res_Rosemont_Sud",     45.5501, -73.5597, "montreal"), //  7 stations — axe Chambly/Darling, sud de Res_Rosemont
+    ("Res_Villeray_Ouest",   45.5504, -73.6155, "montreal"), //  6 stations — Chabot/Villeray, ouest de Res_Villeray
+    ("Res_Verdun_Ouest",     45.4485, -73.5763, "montreal"), //  6 stations — Bannantyne/Argyle
+    ("Res_Ville_Emard",      45.4583, -73.5914, "montreal"), //  6 stations — Ville-Émard / Côte-St-Paul
+    ("Res_Maisonneuve_Est",  45.5534, -73.5375, "montreal"), //  6 stations — Bennett/Ontario, est de Res_Maisonneuve
+    ("Longueuil_St_Charles", 45.5379, -73.5096, "montreal"), //  5 stations — secteur Réal-Bouvier / St-Charles
+    ("Loisir_Parc_Olympique", 45.5588, -73.5498, "montreal"), //  5 stations — Stade olympique / Biodôme / Métro Viau
+    ("Res_St_Zotique",       45.5588, -73.5830, "montreal"), //  5 stations — 12e-20e avenue St-Zotique, Rosemont-Petite-Patrie
+    ("Res_Rosemont_Nord",    45.5692, -73.5732, "montreal"), //  5 stations — Centre ÉPIC, nord de Res_Rosemont
 
     // ── Montréal — Banlieues éloignées (10) ─────────────────────────────
     // Toujours ville "montreal" (lon < -72.5) — ce sont des zones dans le
