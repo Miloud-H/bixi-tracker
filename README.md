@@ -70,7 +70,7 @@ src/
   push.rs      # VAPID key, Web Push sending, subscription notify-and-clear
   routes.rs    # All API handlers
   models.rs    # Shared types
-  zones.rs     # 40 named zones for Montréal (32, incl. 4 outlying suburbs) and Sherbrooke (8)
+  zones.rs     # 46 named zones for Montréal (38, incl. 10 outlying suburbs) and Sherbrooke (8)
 
 public/
   theme.css                       # Shared design tokens (:root / [data-theme="dark"]), loaded by all 4 pages before their own stylesheet

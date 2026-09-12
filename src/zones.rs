@@ -17,6 +17,19 @@
 ///     la zone Montréal la plus proche donc hors du rayon de snap de 900 m). Restent dans
 ///     le bucket ville "montreal" (même filtre `lon < -72.5`) — ce ne sont pas une 3e ville,
 ///     juste de nouvelles zones dans le bucket existant.
+///   - 2026-09-12 (suite) : Deux-Montagnes / Sainte-Marthe-sur-le-Lac (corridor étalé
+///     autour de Saint-Eustache) et 4 zones Longueuil (déploiement Rive-Sud complet,
+///     pas une simple banlieue satellite).
+///
+/// TODO — refresh système complet à faire (pas urgent, gros chantier) : en ré-appliquant
+/// les mêmes critères de validation ci-dessus sur le flux GBFS live du 2026-09-12
+/// (1081 stations dans le bucket "montreal", vs 1032 à la création des zones), 553
+/// stations (~51%) sont à plus de 900 m de toute zone existante, formant 96 clusters
+/// d'au moins 2 stations à moins de 600 m — y compris en plein Montréal central
+/// (ex. Villeray/Jarry : 13 stations, Hochelaga : 10, Rosemont : 8). Le réseau a
+/// visiblement beaucoup grandi depuis la dernière validation. Script de clustering :
+/// analysis/suburb_clustering.py (gitignoré). Mérite sa propre passe complète avec
+/// curation manuelle des noms/centroïdes, pas un ajout à la volée.
 pub const ZONES: &[(&str, f64, f64, &str)] = &[
     // ── Montréal — Transit (5) ──────────────────────────────────────────
     ("Transit_Gare_Centrale",  45.5000, -73.5665, "montreal"), // 21 stations — REM / VIA / exo
@@ -72,15 +85,28 @@ pub const ZONES: &[(&str, f64, f64, &str)] = &[
     // Notre-Dame-de-Grâce
     ("Res_NDG",             45.4720, -73.6305, "montreal"), //  2 stations
 
-    // ── Montréal — Banlieues éloignées (4) ──────────────────────────────
+    // ── Montréal — Banlieues éloignées (10) ─────────────────────────────
     // Toujours ville "montreal" (lon < -72.5) — ce sont des zones dans le
     // bucket existant, pas une nouvelle ville. Isolées géographiquement
     // (18-22 km de la zone montréalaise la plus proche), donc sans elles
     // ces trajets ne matchaient aucune zone à moins de 900 m.
     ("Chambly",         45.4474, -73.2783, "montreal"), //  4 stations — Bourgogne / Langevin
     ("Sainte_Julie",    45.5823, -73.3243, "montreal"), //  5 stations — Terminus Ste-Julie
-    ("Saint_Eustache",  45.5576, -73.8890, "montreal"), // 16 stations — Mairie de St-Eustache
     ("Sainte_Therese",  45.6391, -73.8262, "montreal"), //  6 stations — Place Gabriel-Labelle
+
+    // Rive-Nord (Deux-Montagnes) : corridor étalé sur ~6 km, pas un seul
+    // hub compact — une zone ne suffisait pas (2026-09-12, seulement 3
+    // stations sur 23 dans 6 km étaient à moins de 900 m de l'unique zone).
+    ("Saint_Eustache",           45.5576, -73.8890, "montreal"), //  3 stations dans 900m — Mairie de St-Eustache
+    ("Deux_Montagnes",           45.5405, -73.9000, "montreal"), //  2 stations dans 900m — gare REM
+    ("Sainte_Marthe_sur_le_Lac", 45.5373, -73.9261, "montreal"), //  2 stations dans 900m — des Promenades
+
+    // Longueuil : déploiement complet (Rive-Sud), pas une petite banlieue
+    // satellite comme Chambly — plusieurs pôles distincts identifiés.
+    ("Longueuil_Centre",          45.5242, -73.5198, "montreal"), // 4 stations — Métro Longueuil–Université-de-Sherbrooke
+    ("Longueuil_Roland_Therrien", 45.5370, -73.4790, "montreal"), // 5 stations — Hôpital Pierre-Boucher / Cégep Édouard-Montpetit
+    ("Longueuil_Coteau_Rouge",    45.5220, -73.4950, "montreal"), // 6 stations — secteur résidentiel Coteau-Rouge
+    ("Longueuil_St_Hubert",       45.5107, -73.4316, "montreal"), // 2 stations — Gare Longueuil–St-Hubert
 
     // ── Sherbrooke (8) ──────────────────────────────────────────────────
     ("Sherbrooke_Centre_Ville",     45.4040, -71.8929, "sherbrooke"),
