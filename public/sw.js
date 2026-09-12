@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v8';
+const CACHE = 'bixi-v9';
 const STATIC = [
   '/',
   '/index.html',
@@ -17,6 +17,7 @@ const STATIC = [
   '/js/geo.js',
   '/js/trips.js',
   '/js/ui.js',
+  '/js/tiles.js',
   '/icons/icon.svg',
 ];
 

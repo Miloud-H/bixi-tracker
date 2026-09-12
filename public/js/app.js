@@ -1,5 +1,5 @@
 import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup } from "./map.js";
-import { fetchTrips, fetchActive, filterActiveAt, filterByDistance } from "./trips.js";
+import { fetchTrips, fetchActive, filterActiveAt, filterByDistance, localToday } from "./trips.js";
 import { findNearestStation, haversineDistance, CITIES } from "./geo.js";
 import {
   initTheme, toggleTheme,
@@ -25,13 +25,13 @@ function urlBase64ToUint8Array(base64Url) {
 
 class App {
   constructor() {
-    this.map          = initMap();
+    this.theme        = initTheme();
+    this.map          = initMap(this.theme);
     this.stations     = [];
     this.allTrips     = [];
     this.tripsLayer   = null;
     this.focusLayer   = null;
     this.lastTripCount = 0;
-    this.theme        = initTheme();
     this.chartOpen    = false;
     this.chartTab     = "hourly";
     this.activeSearch  = "";
@@ -51,9 +51,7 @@ class App {
     this.player = new TimelinePlayer("timeSlider", () => this.render());
 
     const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    const today = new Date(now.getTime() - offset).toISOString().split("T")[0];
-    this.datePicker.value = sessionStorage.getItem("bixi-date") || today;
+    this.datePicker.value = sessionStorage.getItem("bixi-date") || localToday();
     this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
 
     this.bindEvents();
@@ -167,6 +165,7 @@ class App {
 
     document.getElementById("themeToggle").addEventListener("click", () => {
       this.theme = toggleTheme(this.theme);
+      this.map.setTiles(this.theme);
       drawHistogram(this.histCanvas, this.filteredTrips());
       if (this.chartOpen) {
         destroyDailyChart();
@@ -211,12 +210,11 @@ class App {
 
   goToNow() {
     const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    const localToday = new Date(now.getTime() - offset).toISOString().split("T")[0];
+    const today = localToday();
 
     // Si on n'est pas sur aujourd'hui, recharger d'abord
-    if (this.datePicker.value !== localToday) {
-      this.datePicker.value = localToday;
+    if (this.datePicker.value !== today) {
+      this.datePicker.value = today;
       this.load().then(() => {
         this.timeSlider.value = now.getHours() * 60 + now.getMinutes();
         this.updateRangeSliderPct(this.timeSlider);
@@ -237,10 +235,7 @@ class App {
   async load() {
     try {
       const trips = await fetchTrips(this.datePicker.value);
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      const localToday = new Date(now.getTime() - offset).toISOString().split("T")[0];
-      const isToday = this.datePicker.value === localToday;
+      const isToday = this.datePicker.value === localToday();
       if (isToday && this.lastTripCount > 0 && trips.length > this.lastTripCount) {
         showAlert(`🚀 ${trips.length - this.lastTripCount} nouveau(x) trajet(s) !`);
       }

@@ -1,5 +1,10 @@
 const API_URL = "/api/trips";
 
+/** Today's date as YYYY-MM-DD in the browser's local timezone. */
+export function localToday() {
+  return new Date().toLocaleDateString("fr-CA");
+}
+
 export async function fetchTrips(date) {
   const res = await fetch(`${API_URL}?date=${date}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);

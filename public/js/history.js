@@ -1,3 +1,5 @@
+import { initTheme, toggleTheme } from './ui.js';
+
 let activeDays   = 30;
 let activeCity   = 'all';
 let comparing    = false;
@@ -291,16 +293,9 @@ document.getElementById('btnWeekday').addEventListener('click', () => {
 });
 
 // ── Thème ──
-function applyTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = t === 'dark' ? '☀ Clair' : '🌙 Sombre';
-}
-applyTheme(localStorage.getItem('bixi-theme') || 'light');
+let theme = initTheme();
 document.getElementById('themeToggle')?.addEventListener('click', () => {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('bixi-theme', next);
-  applyTheme(next);
+  theme = toggleTheme(theme);
 });
 
 load();

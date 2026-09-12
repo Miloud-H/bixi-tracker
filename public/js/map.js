@@ -6,24 +6,18 @@ import {
   SEARCH_RADIUS_METERS,
 } from "./geo.js";
 import { formatTime } from "./trips.js";
+import { createTileSwitcher } from "./tiles.js";
 
 // Leaflet is loaded globally via <script> tag in index.html
 const L = window.L;
 
-export function initMap() {
+export function initMap(theme = "light") {
   const map = L.map("map", { zoomControl: false }).setView(MONTREAL_CENTER, 13);
   L.control.zoom({ position: "bottomleft" }).addTo(map);
 
-  // Esri World Light Gray Canvas — free, no API key. Split in two services:
-  // muted base map + a transparent labels overlay drawn on top.
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-    attribution: "&copy; Esri",
-    maxZoom: 16,
-  }).addTo(map);
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
-    attribution: "&copy; Esri",
-    maxZoom: 16,
-  }).addTo(map);
+  // Exposed so the theme toggle can swap tiles later without recreating the map.
+  map.setTiles = createTileSwitcher(map);
+  map.setTiles(theme);
 
   return map;
 }

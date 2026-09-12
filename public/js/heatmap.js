@@ -1,3 +1,7 @@
+import { initTheme, toggleTheme } from './ui.js';
+import { createTileSwitcher } from './tiles.js';
+import { localToday } from './trips.js';
+
 const CITIES = {
   montreal:   { center: [45.5088, -73.5878], zoom: 13, filter: p => p.lon < -72.5 },
   sherbrooke: { center: [45.4042, -71.8929], zoom: 13, filter: p => p.lon >= -72.5 },
@@ -6,31 +10,7 @@ const CITIES = {
 const map = L.map('map', { zoomControl: false }).setView(CITIES.montreal.center, CITIES.montreal.zoom);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-// Esri World Gray Canvas — free, no API key. Each theme is a muted base map
-// plus a transparent labels overlay drawn on top of it.
-const TILES = {
-  dark: {
-    base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    ref:  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-  },
-  light: {
-    base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    ref:  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-  },
-};
-let tileLayers = null;
-let tilesTheme = null;
-
-function setTiles(theme) {
-  if (theme === tilesTheme) return;
-  if (tileLayers) { tileLayers.base.remove(); tileLayers.ref.remove(); }
-  const t = TILES[theme] || TILES.dark;
-  tileLayers = {
-    base: L.tileLayer(t.base, { attribution: '&copy; Esri', maxZoom: 16 }).addTo(map),
-    ref:  L.tileLayer(t.ref,  { attribution: '&copy; Esri', maxZoom: 16 }).addTo(map),
-  };
-  tilesTheme = theme;
-}
+const setTiles = createTileSwitcher(map);
 
 let allPoints  = [];
 let heatLayer  = null;
@@ -95,26 +75,17 @@ async function loadData(date) {
 }
 
 const datePicker = document.getElementById('datePicker');
-const today = new Date().toLocaleDateString('fr-CA');
-datePicker.value = sessionStorage.getItem('bixi-date') || today;
+datePicker.value = sessionStorage.getItem('bixi-date') || localToday();
 datePicker.addEventListener('change', () => {
   sessionStorage.setItem('bixi-date', datePicker.value);
   loadData(datePicker.value);
 });
 
-function applyTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = t === 'dark' ? '☀ Clair' : '🌙 Sombre';
-}
-const savedTheme = localStorage.getItem('bixi-theme') || 'light';
-applyTheme(savedTheme);
-setTiles(savedTheme);
+let theme = initTheme();
+setTiles(theme);
 document.getElementById('themeToggle')?.addEventListener('click', () => {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('bixi-theme', next);
-  applyTheme(next);
-  setTiles(next);
+  theme = toggleTheme(theme);
+  setTiles(theme);
 });
 
 slider.addEventListener('input', () => { updateSliderBg(); render(); });

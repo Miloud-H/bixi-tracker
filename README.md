@@ -64,12 +64,13 @@ public/
     heatmap.js  # Heat layer map
     history.js  # Chart.js history
     map.js      # Leaflet helpers (trips, focus, station popup)
-    trips.js    # API fetch, time filtering
-    ui.js       # Panels, charts, alerts, timeline player
+    trips.js    # API fetch, time filtering, localToday()
+    ui.js       # Panels, charts, alerts, timeline player, theme (initTheme/toggleTheme)
     geo.js      # Haversine, station lookup, city config
+    tiles.js    # Esri basemap (base + labels overlay), theme-aware tile switcher
 ```
 
-Note: `app.js` is modular (imports from `map.js`/`geo.js`/`trips.js`/`ui.js`); `atlas.js`, `heatmap.js`, and `history.js` are standalone scripts that don't share code with it yet — each currently reimplements its own theme toggling and tile setup.
+All four pages are ES modules and share `ui.js` (theme), `tiles.js` (the three map pages), and `trips.js`'s `localToday()` — no page reimplements its own theme toggling or tile setup anymore.
 
 ## API
 
