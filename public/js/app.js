@@ -8,9 +8,10 @@ import {
   drawHistogram, drawDailyChart, destroyDailyChart, drawStationHourChart,
   drawDurationChart, destroyDurationChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
-  renderDeparturesPanel, renderWatchStatus,
+  renderDeparturesPanel, renderWatchStatus, renderWatchHistory,
   setPlayingState, TimelinePlayer,
 } from "./ui.js";
+import { setPendingWatch, recordArrival, getHistory, clearHistory } from "./watchHistory.js";
 
 const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
 const RELOAD_INTERVAL_MS = 30_000;
@@ -41,6 +42,7 @@ class App {
     this._notifPermission = null;
     this.lastDepartures        = null; // dernière réponse /api/departures/nearby
     this.lastDeparturesStation = null;
+    this.historyOpen = false; // panneau "Vélos suivis récemment"
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
@@ -79,6 +81,8 @@ class App {
     }
 
     showAlert(bikeId ? `🚲 ${bikeId} arrivé ici` : "🚲 Vélo arrivé ici");
+
+    if (bikeId) this.stopWatch(bikeId, { arrived: true, arrLat: lat, arrLon: lon });
   }
 
   _focusFromUrlParams() {
@@ -139,6 +143,7 @@ class App {
     document.getElementById("btnReset").addEventListener("click", () => this.reset());
     document.getElementById("btnNearby").addEventListener("click",     () => this.checkNearbyArrivals());
     document.getElementById("btnDepartures").addEventListener("click", () => this.checkNearbyDepartures());
+    document.getElementById("btnWatchHistory")?.addEventListener("click", () => this.toggleWatchHistory());
 
     document.getElementById("bikeSearch").addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.searchBike();
@@ -436,6 +441,14 @@ class App {
   async watchBike(bikeId) {
     if (this.watches.has(bikeId)) return; // déjà suivi
 
+    // Capture la position/heure de départ pour l'historique local — persistée
+    // (pas juste en mémoire) pour survivre à un onglet fermé puis rouvert
+    // via la notification.
+    const dep = this.lastDepartures?.find((d) => d.bike_id === bikeId);
+    if (dep) {
+      setPendingWatch(bikeId, { departedAt: dep.departed_at, depLat: dep.dep_lat, depLon: dep.dep_lon });
+    }
+
     this.watches.set(bikeId, { interval: null });
     renderWatchStatus([...this.watches.keys()]);
     this._renderDepartures();
@@ -509,10 +522,18 @@ class App {
   // arrived: true quand appelé parce que le vélo suivi est réapparu dans le flux
   // (il ne doit pas revenir dans "Départs") — false pour une annulation manuelle
   // (il redevient disponible pour être suivi).
-  stopWatch(bikeId, { arrived = false } = {}) {
+  stopWatch(bikeId, { arrived = false, arrLat, arrLon } = {}) {
     if (bikeId === undefined) {
       for (const id of [...this.watches.keys()]) this.stopWatch(id);
       return;
+    }
+
+    if (arrived) {
+      // Fonctionne même si ce vélo n'a pas d'entrée dans this.watches (ex :
+      // l'app a été rouverte via la notif, sur une instance fraîche) — la
+      // trace du départ vit dans le storage local, pas en mémoire.
+      recordArrival(bikeId, { arrLat, arrLon });
+      if (this.historyOpen) renderWatchHistory(getHistory());
     }
 
     const w = this.watches.get(bikeId);
@@ -534,6 +555,20 @@ class App {
 
     renderWatchStatus([...this.watches.keys()]);
     this._renderDepartures();
+  }
+
+  toggleWatchHistory() {
+    this.historyOpen = !this.historyOpen;
+    const div = document.getElementById("watchHistoryResults");
+    const btn = document.getElementById("btnWatchHistory");
+    if (div) div.style.display = this.historyOpen ? "" : "none";
+    btn?.classList.toggle("active", this.historyOpen);
+    if (this.historyOpen) renderWatchHistory(getHistory());
+  }
+
+  clearWatchHistory() {
+    clearHistory();
+    renderWatchHistory([]);
   }
 
   checkNearbyArrivals() {

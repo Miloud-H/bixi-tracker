@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v9';
+const CACHE = 'bixi-v10';
 const STATIC = [
   '/',
   '/index.html',
@@ -18,6 +18,7 @@ const STATIC = [
   '/js/trips.js',
   '/js/ui.js',
   '/js/tiles.js',
+  '/js/watchHistory.js',
   '/icons/icon.svg',
 ];
 
@@ -86,14 +87,22 @@ self.addEventListener('push', e => {
   const body  = data.body  || 'Le vélo suivi est revenu dans le flux.';
 
   e.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: '/icons/icon.svg',
-      badge: '/icons/icon.svg',
-      // Un tag par vélo : plusieurs suivis simultanés ne doivent pas s'écraser.
-      tag: `bixi-watch-${data.bikeId || Date.now()}`,
-      data,
-    })
+    Promise.all([
+      self.registration.showNotification(title, {
+        body,
+        icon: '/icons/icon.svg',
+        badge: '/icons/icon.svg',
+        // Un tag par vélo : plusieurs suivis simultanés ne doivent pas s'écraser.
+        tag: `bixi-watch-${data.bikeId || Date.now()}`,
+        data,
+      }),
+      // Aussi immédiat que possible plutôt que d'attendre un clic sur la
+      // notif ou le prochain polling (30s) : l'app, si ouverte, récupère les
+      // coordonnées d'arrivée tout de suite (distance exacte dans l'historique).
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+        clientList.forEach(c => c.postMessage({ type: 'bike-arrived', ...data }));
+      }),
+    ])
   );
 });
 

@@ -438,6 +438,46 @@ export function renderWatchStatus(bikeIds) {
     </div>`).join("");
 }
 
+// --- Watch history (local, per-device) ---
+
+export function renderWatchHistory(entries) {
+  const div = document.getElementById("watchHistoryResults");
+  if (!div) return;
+
+  const header = `
+    <div class="nearby-station-header">
+      <span class="nearby-station-icon">📜</span>
+      <span class="nearby-station-name">Vélos suivis récemment</span>
+      <button class="watch-stop" onclick="window.app.clearWatchHistory()" title="Vider l'historique">🗑</button>
+    </div>`;
+
+  if (!entries || entries.length === 0) {
+    div.innerHTML = header + `<div class="nearby-empty">Aucun suivi enregistré pour l'instant.</div>`;
+    return;
+  }
+
+  const items = entries.map((e) => {
+    const dep = e.departedAt ? formatTime(e.departedAt) : "?";
+    const arr = formatTime(e.arrivedAt);
+    const durMin = e.departedAt
+      ? Math.max(0, Math.round((new Date(e.arrivedAt) - new Date(e.departedAt)) / 60_000))
+      : null;
+    const details = [
+      durMin !== null ? `${durMin} min` : null,
+      e.distanceM !== null ? `${e.distanceM} m` : null,
+    ].filter(Boolean).join(" · ");
+
+    return `
+      <li class="nearby-arrival-item">
+        <span class="nearby-arrival-bike">🚲 ${e.bikeId}</span>
+        <span class="nearby-arrival-time">${dep} → ${arr}</span>
+        <span class="nearby-arrival-ago">${details}</span>
+      </li>`;
+  }).join("");
+
+  div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
+}
+
 // --- Timeline player ---
 
 export class TimelinePlayer {

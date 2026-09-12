@@ -295,6 +295,7 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   font-size: 13px;
 }
 .btn-nearby:hover { opacity: 0.88; }
+.btn-nearby.active { background: var(--accent); color: #000; }
 
 .watch-btn {
   margin-left: auto;
