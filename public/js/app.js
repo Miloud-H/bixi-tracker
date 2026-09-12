@@ -402,15 +402,20 @@ class App {
     showAlert(`Focus groupe #${groupId} — ${members.length} vélos`);
   }
 
+  // Purement visuel (styles de trajet, panneaux de recherche/départs) — ne
+  // touche PAS aux suivis actifs. Appelé aussi bien par reset() (bouton
+  // "Tout réinitialiser", où annuler tous les suivis a du sens) que par le
+  // listener "popupclose" de la carte (n'importe quelle popup qui se ferme,
+  // y compris via map.closePopup() juste après un clic "Suivre" — annuler
+  // tous les suivis à CE moment-là serait un vrai bug, pas juste hors-sujet).
   resetStyles() {
     this.activeSearch = "";
     resetLayerStyles(this.tripsLayer);
     if (this.focusLayer) { this.map.removeLayer(this.focusLayer); this.focusLayer = null; }
     document.getElementById("nearbyResults").innerHTML    = "";
-    this.lastDepartures = null; // avant stopWatch() : évite de re-peupler la liste qu'on vide
+    this.lastDepartures = null; // avant de vider le HTML : évite qu'un re-render imminent le repeuple
     document.getElementById("departureResults").innerHTML = "";
     document.getElementById("bikeResults").innerHTML      = "";
-    this.stopWatch();
   }
 
   showStationCard(station) {
@@ -454,6 +459,7 @@ class App {
     updateDistLabel(0);
     this.updateRangeSliderPct(this.distSlider);
     this.resetStyles();
+    this.stopWatch(); // "Tout réinitialiser" annule aussi les suivis actifs — resetStyles() seul ne le fait plus
     const city = CITIES[this.activeCity];
     this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
     this.render();
