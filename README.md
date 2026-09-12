@@ -8,10 +8,10 @@ The backend polls Velobixi's public GBFS API every 15 seconds, detects bike move
 
 | Page | Description |
 |------|-------------|
-| **Tracker** (`/`) | Live map with time-scrubbing slider, bike search, group detection, station cards, nearby arrivals/departures, and multi-bike watch with push notifications |
+| **Tracker** (`/`) | Live map with time-scrubbing slider, bike search, group detection, station cards, nearby arrivals/departures, multi-bike watch with push notifications, a local watch history, a same-day riding forecast (see below), and an alert panel for bikes stuck in-flight 90+ min |
 | **Atlas** (`/atlas.html`) | Zone-to-zone flow visualization by hour |
 | **Heatmap** (`/heatmap.html`) | Departure or arrival density heatmap by hour (day or 7-day rollup) |
-| **History** (`/history.html`) | Daily trip count chart with period comparison and weekday breakdown |
+| **History** (`/history.html`) | Daily trip count chart with period comparison, weekday breakdown, an optional Montréal temperature overlay, and an all-time bike leaderboard/odometer |
 
 All pages share a dark/light theme (persisted in `localStorage`) and the selected date (persisted in `sessionStorage` for in-session navigation).
 
@@ -24,11 +24,15 @@ From the Tracker, "Départs" lists bikes that recently left your nearest station
 
 Several bikes can be watched at once; a watched bike is hidden from the "Départs" list until you cancel or it arrives.
 
+### Riding forecast
+
+The "Prévision du jour" card on the Tracker estimates today's and tomorrow's trip volume from an Open-Meteo forecast (Montréal) run through a linear regression trained on one season of trips vs. weather (`analysis/weather_regression.py`). It's explicitly **indicative, not a real prediction** — one season of data can't separate the weather effect from the calendar/seasonal one, so the coefficients are provisional until 2-3 seasons are available (see `project_weather_prediction` in the project's dev notes). Purely client-side, fails silently if Open-Meteo is unavailable.
+
 ## Stack
 
 - **Backend** : Rust / Axum 0.8 / SQLite (r2d2 + rusqlite) / gzip via tower-http / Web Push via `web-push-native` (pure Rust, no OpenSSL — kept the musl static build dependency-free)
 - **Frontend** : Vanilla JavaScript (ES modules on the Tracker page; standalone scripts on Atlas/Heatmap/History), Leaflet.js, Chart.js
-- **PWA** : service worker (network-first for HTML + API, cache-first for assets, handles `push`/`notificationclick`)
+- **PWA** : service worker (network-first for HTML + API, cache-first for same-origin assets, handles `push`/`notificationclick`) — cross-origin requests (Esri tiles, GBFS, Open-Meteo) bypass the service worker entirely rather than being cached indefinitely
 
 ## Development
 
