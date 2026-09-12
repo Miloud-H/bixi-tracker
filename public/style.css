@@ -1,47 +1,8 @@
 /* =============================================
    BIXI TRACKER — Design System
+   Les tokens de couleur (:root / [data-theme="dark"]) vivent dans
+   theme.css, chargé avant ce fichier (partagé par les 4 pages).
    ============================================= */
-
-:root {
-  --bg-panel:        #ffffff;
-  --bg-panel-hover:  #f5f5f5;
-  --bg-item:         #f4f5f7;
-  --border:          #e8e8e8;
-  --border-strong:   #cccccc;
-  --text-primary:    #1a1a1a;
-  --text-secondary:  #555555;
-  --text-muted:      #999999;
-  --accent:          #2ecc71;
-  --accent-red:      #e74c3c;
-  --accent-blue:     #3498db;
-  --shadow:          0 4px 20px rgba(0,0,0,0.10);
-  --shadow-strong:   0 8px 32px rgba(0,0,0,0.16);
-  --slider-track:    #e0e0e0;
-  --btn-bg:          #f0f0f0;
-  --btn-border:      #d8d8d8;
-  --stats-bg:        rgba(255,255,255,0.95);
-  --section-gap:     14px;
-}
-
-[data-theme="dark"] {
-  --bg-panel:        #141820;
-  --bg-panel-hover:  #1e2433;
-  --bg-item:         #1a2030;
-  --border:          #2a3348;
-  --border-strong:   #3a4560;
-  --text-primary:    #e8eaf0;
-  --text-secondary:  #9aa3b8;
-  --text-muted:      #5a6480;
-  --accent:          #00e676;
-  --accent-red:      #ff5252;
-  --accent-blue:     #64b5f6;
-  --shadow:          0 4px 20px rgba(0,0,0,0.5);
-  --shadow-strong:   0 8px 32px rgba(0,0,0,0.7);
-  --slider-track:    #2a3348;
-  --btn-bg:          #1e2433;
-  --btn-border:      #2a3348;
-  --stats-bg:        rgba(20,24,32,0.95);
-}
 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

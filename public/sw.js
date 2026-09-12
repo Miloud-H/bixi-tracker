@@ -1,10 +1,11 @@
-const CACHE = 'bixi-v14';
+const CACHE = 'bixi-v15';
 const STATIC = [
   '/',
   '/index.html',
   '/atlas.html',
   '/heatmap.html',
   '/history.html',
+  '/theme.css',
   '/style.css',
   '/atlas.css',
   '/heatmap.css',

@@ -69,6 +69,7 @@ src/
   zones.rs     # 36 named zones for Montréal (28) and Sherbrooke (8)
 
 public/
+  theme.css                       # Shared design tokens (:root / [data-theme="dark"]), loaded by all 4 pages before their own stylesheet
   index.html / style.css          # Tracker
   atlas.html  / atlas.css         # Atlas
   heatmap.html / heatmap.css      # Heatmap
