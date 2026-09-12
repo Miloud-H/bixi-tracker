@@ -38,6 +38,10 @@ export function initMap(theme = "light") {
       window.app.searchBike(el.dataset.bikeId);
     } else if (el.dataset.action === "highlight-group") {
       window.app.highlightGroup(Number(el.dataset.groupId));
+    } else if (el.dataset.action === "watch-bike") {
+      e.preventDefault();
+      window.app.watchBike(el.dataset.bikeId);
+      map.closePopup();
     }
   });
 
@@ -224,10 +228,15 @@ export function focusTrip(map, sl1, sl2, el1, el2) {
 // l'animation CSS de pulsation, et le volume (quelques dizaines à ~200 vélos
 // aux heures de pointe) reste largement sous ARROW_MAX_TRIPS.
 
-export function renderInFlight(map, bikes) {
+export function renderInFlight(map, bikes, watchedIds) {
   const layer = L.layerGroup().addTo(map);
 
   bikes.forEach((bike) => {
+    const isWatched = watchedIds?.has(bike.bike_id);
+    const watchButton = isWatched
+      ? `<span class="watch-btn is-watching">✓ Suivi</span>`
+      : `<button class="watch-btn" data-action="watch-bike" data-bike-id="${escapeHtml(bike.bike_id)}">Suivre</button>`;
+
     L.marker([bike.dep_lat, bike.dep_lon], {
       icon: L.divIcon({
         className: "inflight-marker",
@@ -239,8 +248,9 @@ export function renderInFlight(map, bikes) {
       .addTo(layer)
       .bindPopup(
         `🚴 <b><a href="#" data-action="search-bike" data-bike-id="${escapeHtml(bike.bike_id)}">${escapeHtml(bike.bike_id)}</a></b><br>
-         En vol depuis ${formatElapsed(bike.elapsed_secs)}<br>
-         <span class="popup-hint">Position de départ — pas de suivi live (le flux GBFS ne rapporte pas la position d'un vélo loué)</span>`
+         En route depuis ${formatElapsed(bike.elapsed_secs)}<br>
+         <span class="popup-hint">Position de départ — pas de suivi live (le flux GBFS ne rapporte pas la position d'un vélo loué)</span><br>
+         ${watchButton}`
       );
   });
 

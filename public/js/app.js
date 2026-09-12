@@ -45,6 +45,7 @@ class App {
     this._notifPermission = null;
     this.lastDepartures        = null; // dernière réponse /api/departures/nearby
     this.lastDeparturesStation = null;
+    this.lastInFlight          = null; // dernière réponse /api/bikes/in-flight (overlay "En route")
     this.historyOpen = false; // panneau "Vélos suivis récemment"
 
     this.datePicker   = document.getElementById("datePicker");
@@ -291,7 +292,8 @@ class App {
       const bikes = await fetch("/api/bikes/in-flight").then((r) => r.json());
       const cityFilter = CITIES[this.activeCity]?.filter ?? (() => true);
       const filtered = bikes.filter((b) => cityFilter({ start_lon: b.dep_lon }));
-      this.inFlightLayer = renderInFlight(this.map, filtered);
+      this.lastInFlight = filtered; // pour que watchBike() y retrouve dep_lat/dep_lon
+      this.inFlightLayer = renderInFlight(this.map, filtered, this.watches);
     } catch (e) {
       console.error("In-flight bikes fetch failed:", e);
     }
@@ -503,8 +505,11 @@ class App {
 
     // Capture la position/heure de départ pour l'historique local — persistée
     // (pas juste en mémoire) pour survivre à un onglet fermé puis rouvert
-    // via la notification.
-    const dep = this.lastDepartures?.find((d) => d.bike_id === bikeId);
+    // via la notification. Cherche dans les deux sources possibles : le
+    // panneau "Départs" (proche d'une station) ou l'overlay carte "En route"
+    // (système entier) — même forme de données (bike_id/departed_at/dep_lat/dep_lon).
+    const dep = this.lastDepartures?.find((d) => d.bike_id === bikeId)
+      ?? this.lastInFlight?.find((d) => d.bike_id === bikeId);
     if (dep) {
       setPendingWatch(bikeId, { departedAt: dep.departed_at, depLat: dep.dep_lat, depLon: dep.dep_lon });
     }

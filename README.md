@@ -8,7 +8,7 @@ The backend polls Velobixi's public GBFS API every 15 seconds, detects bike move
 
 | Page | Description |
 |------|-------------|
-| **Tracker** (`/`) | Live map with time-scrubbing slider, bike search, group detection, station cards, nearby arrivals/departures, an opt-in "🚴 En vol" overlay for bikes currently in transit system-wide, multi-bike watch with push notifications, a local watch history, a same-day riding forecast (see below), and an alert panel for bikes stuck in-flight 90+ min |
+| **Tracker** (`/`) | Live map with time-scrubbing slider, bike search, group detection, station cards, nearby arrivals/departures, an opt-in "🚴 En route" overlay for bikes currently in transit system-wide, multi-bike watch with push notifications, a local watch history, a same-day riding forecast (see below), and an alert panel for bikes stuck in-flight 90+ min |
 | **Atlas** (`/atlas.html`) | Zone-to-zone flow visualization by hour |
 | **Heatmap** (`/heatmap.html`) | Departure or arrival density heatmap by hour (day or 7-day rollup) |
 | **History** (`/history.html`) | Daily trip count chart with period comparison, weekday breakdown, an optional Montréal temperature overlay, and an all-time bike leaderboard/odometer |
@@ -153,7 +153,7 @@ Bikes currently in transit that departed within 120 m of the given coordinates, 
 
 ### `GET /api/bikes/in-flight`
 
-Every bike currently in transit, system-wide — same shape as `/api/departures/nearby` but with no location filter. Only the departure position is known (GBFS doesn't report a bike's position while it's rented, see `tracker.rs`), so this backs the Tracker's opt-in "🚴 En vol" map overlay as pulsing markers at each departure point, not a live-moving position.
+Every bike currently in transit, system-wide — same shape as `/api/departures/nearby` but with no location filter. Only the departure position is known (GBFS doesn't report a bike's position while it's rented, see `tracker.rs`), so this backs the Tracker's opt-in "🚴 En route" map overlay as pulsing markers at each departure point, not a live-moving position. Each marker's popup has the same "Suivre" watch button as the nearby-departures panel — same `watchBike` flow either way.
 
 ### `GET /api/bike/status?bike_id=X`
 

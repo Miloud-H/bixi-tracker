@@ -288,6 +288,11 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   flex-shrink: 0;
 }
 .watch-btn:hover { opacity: 0.85; }
+.watch-btn.is-watching {
+  background: var(--bg-item);
+  color: var(--text-muted);
+  cursor: default;
+}
 
 .watch-active {
   display: flex;
