@@ -8,7 +8,7 @@ The backend polls Velobixi's public GBFS API every 15 seconds, detects bike move
 
 | Page | Description |
 |------|-------------|
-| **Tracker** (`/`) | Live map with time-scrubbing slider, bike search, group detection, station cards, nearby arrivals/departures, multi-bike watch with push notifications, a local watch history, a same-day riding forecast (see below), and an alert panel for bikes stuck in-flight 90+ min |
+| **Tracker** (`/`) | Live map with time-scrubbing slider, bike search, group detection, station cards, nearby arrivals/departures, an opt-in "🚴 En vol" overlay for bikes currently in transit system-wide, multi-bike watch with push notifications, a local watch history, a same-day riding forecast (see below), and an alert panel for bikes stuck in-flight 90+ min |
 | **Atlas** (`/atlas.html`) | Zone-to-zone flow visualization by hour |
 | **Heatmap** (`/heatmap.html`) | Departure or arrival density heatmap by hour (day or 7-day rollup) |
 | **History** (`/history.html`) | Daily trip count chart with period comparison, weekday breakdown, an optional Montréal temperature overlay, and an all-time bike leaderboard/odometer |
@@ -103,6 +103,8 @@ tests/
   weatherForecast.test.js # the weather → predicted-trips regression math
 ```
 
+`trips.js`'s `formatElapsed` also backs the in-flight overlay's popups — kept there rather than in `map.js` since `map.js` reads `window.L` at module load time, which would break importing it under Node's test runner.
+
 All four pages are ES modules and share `ui.js` (theme), `tiles.js` (the three map pages), and `trips.js`'s `localToday()` — no page reimplements its own theme toggling or tile setup anymore.
 
 ## API
@@ -148,6 +150,10 @@ Named zone definitions (lat/lon) used by the Atlas.
 ### `GET /api/departures/nearby?lat=X&lon=Y`
 
 Bikes currently in transit that departed within 120 m of the given coordinates, sorted by elapsed time.
+
+### `GET /api/bikes/in-flight`
+
+Every bike currently in transit, system-wide — same shape as `/api/departures/nearby` but with no location filter. Only the departure position is known (GBFS doesn't report a bike's position while it's rented, see `tracker.rs`), so this backs the Tracker's opt-in "🚴 En vol" map overlay as pulsing markers at each departure point, not a live-moving position.
 
 ### `GET /api/bike/status?bike_id=X`
 

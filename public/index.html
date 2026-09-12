@@ -62,10 +62,16 @@
           <input type="range" id="timeSlider" min="0" max="1439" value="720" />
         </div>
         <div class="time-footer">
-          <label class="checkbox-label">
-            <input type="checkbox" id="showAllTrips" />
-            Toute la journée
-          </label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="showAllTrips" />
+              Toute la journée
+            </label>
+            <label class="checkbox-label" title="Vélos actuellement en transit (position de départ connue, pas de position live — voir l'infobulle sur chaque point)">
+              <input type="checkbox" id="showInFlight" />
+              🚴 En vol
+            </label>
+          </div>
           <div class="play-row">
             <button id="togglePlay" class="btn-play">▶ Lecture</button>
             <button id="btnChart" class="btn-ghost">📊 Courbe</button>

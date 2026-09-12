@@ -62,6 +62,22 @@ body { font-family: 'DM Sans', 'Segoe UI', sans-serif; font-size: 13px; }
   50%       { box-shadow: 0 0 12px var(--accent); }
 }
 
+/* ── Vélos "en vol" (overlay carte, voir renderInFlight) ──
+   Couleur ambre volontairement en dur, pas un token thème.css — doit rester
+   distincte des lignes de trajet (bleu/rouge groupe) dans les deux thèmes. */
+.inflight-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #ffa726;
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px #ffa726;
+  animation: pulse-inflight 1.6s ease-in-out infinite;
+}
+@keyframes pulse-inflight {
+  0%, 100% { box-shadow: 0 0 6px #ffa726; transform: scale(1); }
+  50%       { box-shadow: 0 0 14px #ffa726; transform: scale(1.15); }
+}
+
 /* ── Sections ── */
 .panel-section {
   padding: 12px 16px;
@@ -189,6 +205,7 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 8px;
   gap: 8px;
 }
+.checkbox-group { display: flex; flex-direction: column; gap: 4px; }
 .play-row { display: flex; gap: 6px; }
 .checkbox-label {
   display: flex;
@@ -756,6 +773,7 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   font-size: 11px;
 }
 .popup-group-label { color: var(--accent-red); }
+.popup-hint { color: var(--text-muted); font-size: 10px; }
 .click-popup-list { padding: 10px; margin: 0; font-size: 11px; }
 
 .city-selector {

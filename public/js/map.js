@@ -5,7 +5,7 @@ import {
   MONTREAL_CENTER,
   SEARCH_RADIUS_METERS,
 } from "./geo.js";
-import { formatTime } from "./trips.js";
+import { formatTime, formatElapsed } from "./trips.js";
 import { createTileSwitcher } from "./tiles.js";
 import { escapeHtml } from "./ui.js";
 
@@ -215,6 +215,36 @@ export function focusTrip(map, sl1, sl2, el1, el2) {
   const focusLayer = L.layerGroup([line, arrow, startDot, endDot]).addTo(map);
   map.fitBounds(L.latLngBounds([start, end]).pad(0.3));
   return focusLayer;
+}
+
+// --- Vélos "en vol" (overlay carte, voir /api/bikes/in-flight) ---
+// Contrairement à un trajet, on ne connaît que le point de départ — pas de
+// ligne ni de flèche de direction, juste un point pulsant + temps écoulé.
+// Rendu en L.marker/divIcon (DOM, pas canvas) : c'est le seul moyen d'avoir
+// l'animation CSS de pulsation, et le volume (quelques dizaines à ~200 vélos
+// aux heures de pointe) reste largement sous ARROW_MAX_TRIPS.
+
+export function renderInFlight(map, bikes) {
+  const layer = L.layerGroup().addTo(map);
+
+  bikes.forEach((bike) => {
+    L.marker([bike.dep_lat, bike.dep_lon], {
+      icon: L.divIcon({
+        className: "inflight-marker",
+        html: '<div class="inflight-dot"></div>',
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      }),
+    })
+      .addTo(layer)
+      .bindPopup(
+        `🚴 <b><a href="#" data-action="search-bike" data-bike-id="${escapeHtml(bike.bike_id)}">${escapeHtml(bike.bike_id)}</a></b><br>
+         En vol depuis ${formatElapsed(bike.elapsed_secs)}<br>
+         <span class="popup-hint">Position de départ — pas de suivi live (le flux GBFS ne rapporte pas la position d'un vélo loué)</span>`
+      );
+  });
+
+  return layer;
 }
 
 export function bindClickPopup(map, getTrips, stations, onStationClick) {

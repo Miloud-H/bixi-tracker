@@ -7,6 +7,7 @@ import {
   tripEndMinutes,
   formatTime,
   minutesToHHMM,
+  formatElapsed,
   filterActiveAt,
   filterByDistance,
 } from "../public/js/trips.js";
@@ -44,6 +45,18 @@ describe("minutesToHHMM", () => {
 
   test("formats the last minute of the day", () => {
     assert.equal(minutesToHHMM(23 * 60 + 59), "23:59");
+  });
+});
+
+describe("formatElapsed", () => {
+  test("under an hour shows minutes only", () => {
+    assert.equal(formatElapsed(0), "0 min");
+    assert.equal(formatElapsed(8 * 60), "8 min");
+  });
+
+  test("an hour or more shows h + padded minutes", () => {
+    assert.equal(formatElapsed(60 * 60), "1 h 00");
+    assert.equal(formatElapsed(65 * 60), "1 h 05");
   });
 });
 

@@ -1,4 +1,4 @@
-import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup } from "./map.js";
+import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup, renderInFlight } from "./map.js";
 import { fetchTrips, fetchActive, filterActiveAt, filterByDistance, localToday } from "./trips.js";
 import { findNearestStation, haversineDistance, CITIES } from "./geo.js";
 import {
@@ -34,6 +34,7 @@ class App {
     this.allTrips     = [];
     this.tripsLayer   = null;
     this.focusLayer   = null;
+    this.inFlightLayer = null;
     this.lastTripCount = 0;
     this.chartOpen    = false;
     this.chartTab     = "hourly";
@@ -49,6 +50,7 @@ class App {
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
     this.showAllCheck = document.getElementById("showAllTrips");
+    this.showInFlightCheck = document.getElementById("showInFlight");
     this.distSlider   = document.getElementById("distSlider");
     this.histCanvas   = document.getElementById("histogramCanvas");
 
@@ -139,6 +141,8 @@ class App {
       this.render();
     });
 
+    this.showInFlightCheck.addEventListener("change", () => this.refreshInFlight());
+
     document.getElementById("togglePlay").addEventListener("click", () => this.player.toggle());
     document.getElementById("btnNow").addEventListener("click", () => this.goToNow());
     document.getElementById("btnSearch").addEventListener("click", () => this.searchBike());
@@ -196,6 +200,7 @@ class App {
         const city = CITIES[this.activeCity];
         this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
         this.render();
+        this.refreshInFlight();
         drawHistogram(this.histCanvas, this.filteredTrips());
         if (this.chartOpen) drawDailyChart(this.filteredTrips());
       });
@@ -213,6 +218,7 @@ class App {
     setInterval(() => this.load(),          RELOAD_INTERVAL_MS);
     setInterval(() => this.refreshActive(), ACTIVE_INTERVAL_MS);
     setInterval(() => this.refreshOverdue(), ACTIVE_INTERVAL_MS);
+    setInterval(() => this.refreshInFlight(), ACTIVE_INTERVAL_MS);
     this.updateRangeSliderPct(this.timeSlider);
     this.updateRangeSliderPct(this.distSlider);
     this.loadRidingForecast();
@@ -270,6 +276,25 @@ class App {
   focusOverdue(lat, lon) {
     if (Number.isNaN(lat) || Number.isNaN(lon)) return;
     this.map.setView([lat, lon], 16);
+  }
+
+  // Overlay "vélos en vol" (voir map.js::renderInFlight) — off par défaut,
+  // ne fait un fetch que si la case est cochée (pas de polling inutile sinon).
+  async refreshInFlight() {
+    if (this.inFlightLayer) {
+      this.map.removeLayer(this.inFlightLayer);
+      this.inFlightLayer = null;
+    }
+    if (!this.showInFlightCheck.checked) return;
+
+    try {
+      const bikes = await fetch("/api/bikes/in-flight").then((r) => r.json());
+      const cityFilter = CITIES[this.activeCity]?.filter ?? (() => true);
+      const filtered = bikes.filter((b) => cityFilter({ start_lon: b.dep_lon }));
+      this.inFlightLayer = renderInFlight(this.map, filtered);
+    } catch (e) {
+      console.error("In-flight bikes fetch failed:", e);
+    }
   }
 
   async load() {

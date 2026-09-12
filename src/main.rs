@@ -66,6 +66,7 @@ async fn main() {
         .route("/api/zones",              get(routes::get_zones))
         .route("/api/history",            get(routes::get_history))
         .route("/api/departures/nearby",  get(routes::get_departures_nearby))
+        .route("/api/bikes/in-flight",    get(routes::get_in_flight_bikes))
         .route("/api/bike/status",        get(routes::get_bike_status))
         .route("/api/stats",              get(routes::get_fleet_stats))
         .route("/api/bikes/overdue",      get(routes::get_overdue_bikes))

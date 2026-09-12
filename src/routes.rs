@@ -239,36 +239,53 @@ pub async fn get_flows(
 
 // --- Départs récents à proximité ---
 
+/// Snapshot of every currently in-flight bike as a `DepartingBike` — shared by
+/// `get_departures_nearby` (filtered to one station) and `get_in_flight_bikes`
+/// (unfiltered, system-wide).
+fn all_in_flight(state: &AppState) -> Vec<DepartingBike> {
+    let now = Utc::now();
+    let flight = match state.in_flight.read() {
+        Ok(f) => f,
+        Err(_) => return vec![],
+    };
+
+    flight
+        .iter()
+        .map(|(bike_id, (departed_at, dep_lat, dep_lon))| DepartingBike {
+            bike_id:      bike_id.clone(),
+            departed_at:  departed_at.to_rfc3339(),
+            elapsed_secs: (now - *departed_at).num_seconds(),
+            dep_lat:      *dep_lat,
+            dep_lon:      *dep_lon,
+        })
+        .collect()
+}
+
 pub async fn get_departures_nearby(
     State(state): State<AppState>,
     Query(params): Query<NearbyQuery>,
 ) -> Json<Vec<DepartingBike>> {
     const SNAP_M: f64 = 120.0; // emprise physique d'une station BIXI
-    let now = Utc::now();
 
-    let flight = match state.in_flight.read() {
-        Ok(f) => f,
-        Err(_) => return Json(vec![]),
-    };
-
-    let mut bikes: Vec<DepartingBike> = flight
-        .iter()
-        .filter_map(|(bike_id, (departed_at, dep_lat, dep_lon))| {
-            let dist_m = crate::zones::haversine_km(params.lat, params.lon, *dep_lat, *dep_lon) * 1000.0;
-            if dist_m <= SNAP_M {
-                Some(DepartingBike {
-                    bike_id:      bike_id.clone(),
-                    departed_at:  departed_at.to_rfc3339(),
-                    elapsed_secs: (now - *departed_at).num_seconds(),
-                    dep_lat:      *dep_lat,
-                    dep_lon:      *dep_lon,
-                })
-            } else {
-                None
-            }
+    let mut bikes: Vec<DepartingBike> = all_in_flight(&state)
+        .into_iter()
+        .filter(|b| {
+            crate::zones::haversine_km(params.lat, params.lon, b.dep_lat, b.dep_lon) * 1000.0 <= SNAP_M
         })
         .collect();
 
+    bikes.sort_by_key(|b| b.elapsed_secs);
+    Json(bikes)
+}
+
+// --- Tous les vélos en vol, sans filtre de proximité — pour l'overlay carte
+// "vélos en vol" du Tracker. Contrairement à un trajet terminé, un vélo en
+// vol n'a qu'une position de départ connue (le flux GBFS ne rapporte pas sa
+// position tant qu'il est loué) — l'overlay affiche donc un point fixe au
+// départ + temps écoulé, pas une position qui bouge en direct. ---
+
+pub async fn get_in_flight_bikes(State(state): State<AppState>) -> Json<Vec<DepartingBike>> {
+    let mut bikes = all_in_flight(&state);
     bikes.sort_by_key(|b| b.elapsed_secs);
     Json(bikes)
 }

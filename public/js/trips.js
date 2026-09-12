@@ -49,6 +49,13 @@ export function minutesToHHMM(mins) {
   return `${h}:${m}`;
 }
 
+/** Durée écoulée en secondes -> "8 min" ou "1 h 05", pour l'overlay vélos en vol. */
+export function formatElapsed(elapsedSecs) {
+  const mins = Math.floor(elapsedSecs / 60);
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)} h ${(mins % 60).toString().padStart(2, "0")}`;
+}
+
 export function tripStartMinutes(trip) {
   const date = new Date(trip.start_time);
   const [h, m] = date
