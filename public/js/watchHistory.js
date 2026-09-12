@@ -3,6 +3,8 @@
 // ramener l'utilisateur sur une toute nouvelle instance de App), donc on lit
 // depuis le storage plutôt que d'un état en mémoire.
 
+import { haversineDistance } from "./geo.js";
+
 const PENDING_KEY = "bixi-pending-watches";
 const HISTORY_KEY = "bixi-watch-history";
 const MAX_HISTORY  = 30;
@@ -45,15 +47,6 @@ export function clearHistory() {
   writeJSON(HISTORY_KEY, []);
 }
 
-function haversineMeters(lat1, lon1, lat2, lon2) {
-  const R = 6_371_000;
-  const toRad = (x) => (x * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 /**
  * Turns a resolved watch into a history entry, using whatever departure info
  * was captured when the watch started. Returns null (no-op) if there's no
@@ -76,7 +69,7 @@ export function recordArrival(bikeId, { arrLat, arrLon } = {}) {
     arrLat: hasArrival ? arrLat : null,
     arrLon: hasArrival ? arrLon : null,
     distanceM: hasArrival && hasDeparture
-      ? Math.round(haversineMeters(pending.depLat, pending.depLon, arrLat, arrLon))
+      ? Math.round(haversineDistance(pending.depLat, pending.depLon, arrLat, arrLon))
       : null,
   };
 

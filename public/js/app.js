@@ -12,7 +12,7 @@ import {
   renderRidingForecast,
   setPlayingState, TimelinePlayer,
 } from "./ui.js";
-import { setPendingWatch, recordArrival, getHistory, clearHistory } from "./watchHistory.js";
+import { setPendingWatch, clearPendingWatch, recordArrival, getHistory, clearHistory } from "./watchHistory.js";
 import { fetchRidingForecast } from "./weatherForecast.js";
 
 const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
@@ -550,6 +550,13 @@ class App {
       // trace du départ vit dans le storage local, pas en mémoire.
       recordArrival(bikeId, { arrLat, arrLon });
       if (this.historyOpen) renderWatchHistory(getHistory());
+    } else {
+      // Annulation manuelle : le vélo n'est jamais "arrivé", donc
+      // recordArrival() (qui nettoie aussi le pending) n'est jamais appelé —
+      // sans ce clear explicite, l'entrée pending mise par watchBike() reste
+      // en storage indéfiniment (fuite non bornée, contrairement à
+      // l'historique qui est plafonné).
+      clearPendingWatch(bikeId);
     }
 
     const w = this.watches.get(bikeId);

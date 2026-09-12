@@ -142,4 +142,4 @@ document.getElementById('legendToggle').addEventListener('click', () => {
   document.getElementById('legend').classList.toggle('open');
 });
 
-loadData(today);
+loadData(datePicker.value);
