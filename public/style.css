@@ -461,35 +461,18 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
 }
 
 /* ── Prévision météo ── */
-#forecastPanel { font-size: 12px; }
-.forecast-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 8px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  background: var(--bg-item);
-  border: 1px solid var(--border);
-}
-.forecast-day {
-  font-weight: 700;
-  color: var(--text-primary);
-  font-size: 12px;
-  min-width: 70px;
-}
-.forecast-emoji { font-size: 15px; }
-.forecast-text {
-  color: var(--text-secondary);
-  font-size: 12px;
-  flex: 1;
-  min-width: 0;
-}
-.forecast-meta {
-  width: 100%;
+#forecastPanel { font-size: 11px; }
+.forecast-line {
   color: var(--text-muted);
-  font-size: 11px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forecast-line strong {
+  color: var(--text-primary);
+  font-weight: 700;
+  margin-right: 4px;
 }
 
 /* ── Chart ── */
