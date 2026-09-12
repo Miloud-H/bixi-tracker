@@ -48,7 +48,7 @@ Server starts on `http://localhost:3000`. Static files are served from `public/`
 cargo test
 ```
 
-Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping, group detection, day-bounds math, the VAPID key encoding, and the in-flight state machine (`process_poll` in `tracker.rs`: absence debouncing, 120-min expiry, return detection) — live alongside the code they test in `#[cfg(test)] mod tests` blocks. No test DB or network needed. CI runs this before every build; a failing test blocks deployment.
+Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping, group detection, day-bounds math, the VAPID key encoding, the in-flight state machine (`process_poll` in `tracker.rs`: absence debouncing, 120-min expiry, return detection), and the DB cutoff-based cleanup jobs (`db.rs`, against an in-memory SQLite pool) — live alongside the code they test in `#[cfg(test)] mod tests` blocks. No test DB file or network needed. CI runs this before every build; a failing test blocks deployment.
 
 ### Frontend linting
 

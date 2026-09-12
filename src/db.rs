@@ -88,3 +88,104 @@ pub fn cleanup_push_subscriptions(pool: &DbPool, max_age_secs: i64) {
         Err(e) => eprintln!("DB cleanup error: {e}"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An in-memory pool capped at 1 connection: `:memory:` gives each new
+    /// connection its own empty DB, so without capping the pool a test's
+    /// setup `.get()` and the cleanup function's internal `.get()` could
+    /// silently land on two unrelated databases.
+    fn memory_pool() -> DbPool {
+        let manager = SqliteConnectionManager::memory();
+        let pool = r2d2::Pool::builder().max_size(1).build(manager).unwrap();
+        init_schema(&pool).unwrap();
+        pool
+    }
+
+    #[test]
+    fn init_schema_creates_expected_tables() {
+        let pool = memory_pool();
+        let conn = pool.get().unwrap();
+        for table in ["trips", "bike_positions", "push_subscriptions"] {
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [table],
+                |r| r.get(0),
+            ).unwrap();
+            assert_eq!(count, 1, "table {table} should exist after init_schema");
+        }
+    }
+
+    #[test]
+    fn cleanup_positions_deletes_only_rows_past_max_age() {
+        let pool = memory_pool();
+        let now = Utc::now();
+        {
+            let conn = pool.get().unwrap();
+            conn.execute(
+                "INSERT INTO bike_positions (bike_id, lat, lon, seen_at) VALUES (?1, 45.5, -73.6, ?2)",
+                rusqlite::params!["FRESH", now.to_rfc3339()],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO bike_positions (bike_id, lat, lon, seen_at) VALUES (?1, 45.5, -73.6, ?2)",
+                rusqlite::params!["STALE", (now - chrono::Duration::seconds(600)).to_rfc3339()],
+            ).unwrap();
+        }
+
+        cleanup_positions(&pool, 300); // 5 min — the stale row is 10 min old, the fresh one is ~0
+
+        let conn = pool.get().unwrap();
+        let remaining: String = conn
+            .query_row("SELECT bike_id FROM bike_positions", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(remaining, "FRESH", "only the row past max_age_secs should be deleted");
+    }
+
+    #[test]
+    fn cleanup_positions_is_a_noop_when_nothing_is_stale() {
+        let pool = memory_pool();
+        {
+            let conn = pool.get().unwrap();
+            conn.execute(
+                "INSERT INTO bike_positions (bike_id, lat, lon, seen_at) VALUES (?1, 45.5, -73.6, ?2)",
+                rusqlite::params!["FRESH", Utc::now().to_rfc3339()],
+            ).unwrap();
+        }
+
+        cleanup_positions(&pool, 300);
+
+        let conn = pool.get().unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM bike_positions", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn cleanup_push_subscriptions_deletes_only_rows_past_max_age() {
+        let pool = memory_pool();
+        let now = Utc::now();
+        {
+            let conn = pool.get().unwrap();
+            conn.execute(
+                "INSERT INTO push_subscriptions (bike_id, endpoint, p256dh, auth, created_at)
+                 VALUES (?1, ?2, 'k', 'a', ?3)",
+                rusqlite::params!["B1", "https://push.example/1", now.to_rfc3339()],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO push_subscriptions (bike_id, endpoint, p256dh, auth, created_at)
+                 VALUES (?1, ?2, 'k', 'a', ?3)",
+                rusqlite::params!["B2", "https://push.example/2", (now - chrono::Duration::hours(4)).to_rfc3339()],
+            ).unwrap();
+        }
+
+        // Matches PUSH_SUBSCRIPTION_MAX_AGE_SECS (3h) in tracker.rs — B2 (4h old) must go, B1 must stay.
+        cleanup_push_subscriptions(&pool, 3 * 60 * 60);
+
+        let conn = pool.get().unwrap();
+        let remaining: String = conn
+            .query_row("SELECT bike_id FROM push_subscriptions", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(remaining, "B1");
+    }
+}
