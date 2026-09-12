@@ -1,12 +1,36 @@
-import { initTheme, toggleTheme } from './ui.js';
+import { initTheme, toggleTheme, escapeHtml } from './ui.js';
+import { getChartColors } from './chartTheme.js';
 
 let activeDays   = 30;
 let activeCity   = 'all';
 let comparing    = false;
 let weekdayMode  = false;
+let weatherOn    = false;
 let currentData  = [];
+let previousData = null; // cache pour redessiner (ex: bascule de thème) sans refetch
 let chart        = null;
 let weekdayChart = null;
+
+// ── Superposition météo (Montréal — voir project_weather_prediction en
+// mémoire : ~99% du volume, une seule estimation "système" reste représentative) ──
+const MONTREAL = { lat: 45.5019, lon: -73.5674 };
+const weatherCache = new Map(); // "from|to" -> { "YYYY-MM-DD": tempMoy }
+
+async function fetchWeatherRange(fromDate, toDate) {
+  const key = `${fromDate}|${toDate}`;
+  if (weatherCache.has(key)) return weatherCache.get(key);
+
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${MONTREAL.lat}&longitude=${MONTREAL.lon}` +
+    `&start_date=${fromDate}&end_date=${toDate}&daily=temperature_2m_mean&timezone=America%2FToronto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+  const data = await res.json();
+
+  const byDate = {};
+  data.daily.time.forEach((d, i) => { byDate[d] = data.daily.temperature_2m_mean[i]; });
+  weatherCache.set(key, byDate);
+  return byDate;
+}
 
 function toYMD(date) {
   return date.toISOString().split('T')[0];
@@ -33,7 +57,8 @@ async function load() {
         ? fetchHistory({ ...compareDateRange(activeDays), city: activeCity })
         : Promise.resolve(null),
     ]);
-    currentData = current;
+    currentData  = current;
+    previousData = previous;
     if (weekdayMode) {
       renderWeekday(current);
     } else {
@@ -42,6 +67,41 @@ async function load() {
   } catch {
     document.getElementById('loader').style.display = 'none';
   }
+  loadFleetStats();
+}
+
+// ── Classement des vélos + odomètre total (toutes dates, indépendant du
+// filtre de période — c'est un cumul "depuis le début", pas une fenêtre) ──
+
+async function loadFleetStats() {
+  const el = document.getElementById('fleetStats');
+  if (!el) return;
+  try {
+    const stats = await fetch(`/api/stats?city=${activeCity}`).then(r => r.json());
+    renderFleetStats(stats);
+  } catch (e) {
+    console.error('Fleet stats unavailable:', e);
+    el.innerHTML = '';
+  }
+}
+
+function renderFleetStats(stats) {
+  const el = document.getElementById('fleetStats');
+  if (!el) return;
+
+  const rows = stats.top_bikes.map((b, i) => `
+    <li class="fleet-row">
+      <span class="fleet-rank">#${i + 1}</span>
+      <span class="fleet-bike">🚲 ${escapeHtml(b.bike_id)}</span>
+      <span class="fleet-meta">${b.trips.toLocaleString('fr-CA')} trajets · ${Math.round(b.distance_km).toLocaleString('fr-CA')} km</span>
+    </li>`).join('');
+
+  el.innerHTML = `
+    <div class="fleet-header">
+      <span class="fleet-title">🏆 Classement des vélos</span>
+      <span class="fleet-odometer">${Math.round(stats.total_distance_km).toLocaleString('fr-CA')} km parcourus au total</span>
+    </div>
+    <ul class="fleet-list">${rows || '<li class="fleet-empty">Aucune donnée.</li>'}</ul>`;
 }
 
 function rollingAvg(values, window = 7) {
@@ -51,7 +111,7 @@ function rollingAvg(values, window = 7) {
   });
 }
 
-function render(data, prevData) {
+async function render(data, prevData) {
   const labels  = data.map(d => d.date);
   const counts  = data.map(d => d.count);
   const avgLine = rollingAvg(counts, 7);
@@ -135,8 +195,35 @@ function render(data, prevData) {
     });
   }
 
+  // Superposition météo — désactivée si "Comparer" est actif (2 périodes,
+  // pas de sens univoque pour une seule courbe de température).
+  let showWeatherAxis = false;
+  if (weatherOn && !prevData && data.length) {
+    try {
+      const wx = await fetchWeatherRange(data[0].date, data[data.length - 1].date);
+      datasets.push({
+        type: 'line',
+        label: 'Température moy. (Montréal)',
+        data: labels.map(d => wx[d] ?? null),
+        borderColor: '#ffab40',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderDash: [4, 3],
+        pointRadius: 0,
+        tension: 0.3,
+        spanGaps: true,
+        yAxisID: 'temp',
+        order: 0,
+      });
+      showWeatherAxis = true;
+    } catch (e) {
+      console.error('Weather overlay unavailable:', e);
+    }
+  }
+
   if (chart) chart.destroy();
 
+  const c = getChartColors();
   chart = new Chart(document.getElementById('historyChart'), {
     data: { labels, datasets },
     options: {
@@ -145,13 +232,13 @@ function render(data, prevData) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
-          labels: { color: '#9aa3b8', font: { size: 11 }, boxWidth: 12 },
+          labels: { color: c.textSecondary, font: { size: 11 }, boxWidth: 12 },
         },
         tooltip: {
-          backgroundColor: 'rgba(14,17,23,0.95)',
-          titleColor: '#e8eaf0',
-          bodyColor:  '#9aa3b8',
-          borderColor: '#2a3348',
+          backgroundColor: c.tooltipBg,
+          titleColor: c.textPrimary,
+          bodyColor:  c.textSecondary,
+          borderColor: c.border,
           borderWidth: 1,
           callbacks: {
             label: ctx => {
@@ -167,14 +254,21 @@ function render(data, prevData) {
       },
       scales: {
         x: {
-          ticks: { color: '#5a6480', font: { size: 10 }, maxTicksLimit: 12, maxRotation: 0 },
-          grid:  { color: '#1a2030' },
+          ticks: { color: c.textMuted, font: { size: 10 }, maxTicksLimit: 12, maxRotation: 0 },
+          grid:  { color: c.border },
         },
         y: {
-          ticks: { color: '#5a6480', font: { size: 10 }, callback: v => v.toLocaleString('fr-CA') },
-          grid:  { color: '#1a2030' },
+          ticks: { color: c.textMuted, font: { size: 10 }, callback: v => v.toLocaleString('fr-CA') },
+          grid:  { color: c.border },
           beginAtZero: true,
         },
+        ...(showWeatherAxis ? {
+          temp: {
+            position: 'right',
+            ticks: { color: '#ffab40', font: { size: 10 }, callback: v => `${v}°` },
+            grid: { drawOnChartArea: false },
+          },
+        } : {}),
       },
     },
   });
@@ -212,6 +306,7 @@ function renderWeekday(data) {
   if (weekdayChart) weekdayChart.destroy();
   if (chart) { chart.destroy(); chart = null; }
 
+  const c = getChartColors();
   weekdayChart = new Chart(document.getElementById('historyChart'), {
     type: 'bar',
     data: {
@@ -229,21 +324,21 @@ function renderWeekday(data) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { color: '#9aa3b8', font: { size: 11 }, boxWidth: 12 } },
+        legend: { labels: { color: c.textSecondary, font: { size: 11 }, boxWidth: 12 } },
         tooltip: {
-          backgroundColor: 'rgba(14,17,23,0.95)',
-          titleColor: '#e8eaf0',
-          bodyColor: '#9aa3b8',
-          borderColor: '#2a3348',
+          backgroundColor: c.tooltipBg,
+          titleColor: c.textPrimary,
+          bodyColor: c.textSecondary,
+          borderColor: c.border,
           borderWidth: 1,
           callbacks: { label: ctx => ` ${ctx.raw.toLocaleString('fr-CA')} trajets en moy.` },
         },
       },
       scales: {
-        x: { ticks: { color: '#9aa3b8', font: { size: 13, weight: '500' } }, grid: { color: '#1a2030' } },
+        x: { ticks: { color: c.textSecondary, font: { size: 13, weight: '500' } }, grid: { color: c.border } },
         y: {
-          ticks: { color: '#5a6480', font: { size: 10 }, callback: v => v.toLocaleString('fr-CA') },
-          grid: { color: '#1a2030' },
+          ticks: { color: c.textMuted, font: { size: 10 }, callback: v => v.toLocaleString('fr-CA') },
+          grid: { color: c.border },
           beginAtZero: true,
         },
       },
@@ -277,6 +372,23 @@ document.querySelectorAll('[data-city]').forEach(btn => {
 document.getElementById('btnCompare').addEventListener('click', () => {
   comparing = !comparing;
   document.getElementById('btnCompare').classList.toggle('active', comparing);
+  // Mutuellement exclusif avec la météo : une seule courbe de température
+  // n'a pas de sens univoque face à 2 périodes superposées.
+  if (comparing && weatherOn) {
+    weatherOn = false;
+    document.getElementById('btnWeather').classList.remove('active');
+  }
+  if (!weekdayMode) load();
+});
+
+// ── Météo (superposition température, désactive "Comparer") ──
+document.getElementById('btnWeather').addEventListener('click', () => {
+  weatherOn = !weatherOn;
+  document.getElementById('btnWeather').classList.toggle('active', weatherOn);
+  if (weatherOn && comparing) {
+    comparing = false;
+    document.getElementById('btnCompare').classList.remove('active');
+  }
   if (!weekdayMode) load();
 });
 
@@ -293,9 +405,14 @@ document.getElementById('btnWeekday').addEventListener('click', () => {
 });
 
 // ── Thème ──
+// Les couleurs Chart.js sont figées au moment du new Chart(...) (lues via
+// getComputedStyle) — sans redessiner ici, le graphique garderait les
+// couleurs de l'ancien thème jusqu'au prochain load().
 let theme = initTheme();
 document.getElementById('themeToggle')?.addEventListener('click', () => {
   theme = toggleTheme(theme);
+  if (weekdayMode) renderWeekday(currentData);
+  else if (currentData.length) render(currentData, previousData);
 });
 
 load();

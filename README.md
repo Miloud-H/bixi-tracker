@@ -88,6 +88,7 @@ public/
     tiles.js    # Esri basemap (base + labels overlay), theme-aware tile switcher
     watchHistory.js    # localStorage: personal history of watched bikes
     weatherForecast.js # Open-Meteo forecast + rough trip-count estimate (indicative only, see analysis/)
+    chartTheme.js      # getChartColors() — Chart.js/canvas colors read from theme.css custom properties
 ```
 
 All four pages are ES modules and share `ui.js` (theme), `tiles.js` (the three map pages), and `trips.js`'s `localToday()` — no page reimplements its own theme toggling or tile setup anymore.
@@ -139,6 +140,14 @@ Bikes currently in transit that departed within 120 m of the given coordinates, 
 ### `GET /api/bike/status?bike_id=X`
 
 `{ "in_flight": bool }` — used by the client-side foreground polling fallback.
+
+### `GET /api/stats?city=all|montreal|sherbrooke`
+
+All-time fleet stats (not windowed by date): total trips, total distance, and a top-5 bike leaderboard by distance. Backs the History page's odometer/leaderboard card.
+
+### `GET /api/bikes/overdue`
+
+Bikes currently in-flight for 90+ minutes (the in-flight timeout is 120 min, see `tracker.rs`) — a bike this long without reappearing in the feed is usually a mis-locked bike or a GPS glitch, not a real ride. Powers the "🚨 Vélos en fuite" panel on the main page.
 
 ### `GET /api/push/vapid-public-key`
 

@@ -129,6 +129,39 @@ h1 span { color: #a78bfa; }
 
 #historyChart { width: 100% !important; }
 
+/* ── Classement des vélos / odomètre ── */
+#fleetStats {
+  background: rgba(14, 17, 23, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-top: 16px;
+}
+.fleet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.fleet-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.fleet-odometer { font-size: 12px; color: #a78bfa; font-weight: 600; }
+.fleet-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fleet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+  font-size: 12px;
+}
+.fleet-rank { color: var(--text-muted); font-weight: 700; min-width: 20px; }
+.fleet-bike { color: var(--text-primary); font-weight: 600; flex: 1; }
+.fleet-meta { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.fleet-empty { color: var(--text-muted); font-size: 12px; padding: 4px 0; }
+
 /* ── Loader ── */
 #loader {
   position: fixed; inset: 0;
@@ -167,4 +200,6 @@ h1 span { color: #a78bfa; }
 [data-theme="light"] .stat-pill { background: rgba(255,255,255,0.96); }
 [data-theme="light"] .stat-pill-value { color: var(--text-primary); }
 [data-theme="light"] #chartWrap { background: rgba(255,255,255,0.96); }
+[data-theme="light"] #fleetStats { background: rgba(255,255,255,0.96); }
+[data-theme="light"] .fleet-row { background: rgba(0,0,0,0.02); }
 [data-theme="light"] #loader { background: #f0f2f5; }

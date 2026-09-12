@@ -9,7 +9,7 @@ import {
   drawDurationChart, destroyDurationChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
   renderDeparturesPanel, renderWatchStatus, renderWatchHistory,
-  renderRidingForecast,
+  renderRidingForecast, renderOverdueBikes,
   TimelinePlayer,
 } from "./ui.js";
 import { setPendingWatch, clearPendingWatch, recordArrival, getHistory, clearHistory } from "./watchHistory.js";
@@ -212,9 +212,11 @@ class App {
 
     setInterval(() => this.load(),          RELOAD_INTERVAL_MS);
     setInterval(() => this.refreshActive(), ACTIVE_INTERVAL_MS);
+    setInterval(() => this.refreshOverdue(), ACTIVE_INTERVAL_MS);
     this.updateRangeSliderPct(this.timeSlider);
     this.updateRangeSliderPct(this.distSlider);
     this.loadRidingForecast();
+    this.refreshOverdue();
   }
 
   // Estimation indicative du volume de trajets attendu (météo Open-Meteo +
@@ -252,6 +254,22 @@ class App {
   async refreshActive() {
     const data = await fetchActive();
     updateActiveCount(data ? data.active_count : null);
+  }
+
+  // Vélos en transit depuis longtemps, proches du timeout in-flight (120 min)
+  // — non-critique, échec silencieux si l'API est indisponible.
+  async refreshOverdue() {
+    try {
+      const bikes = await fetch("/api/bikes/overdue").then((r) => r.json());
+      renderOverdueBikes(bikes);
+    } catch (e) {
+      console.error("Overdue bikes fetch failed:", e);
+    }
+  }
+
+  focusOverdue(lat, lon) {
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+    this.map.setView([lat, lon], 16);
   }
 
   async load() {

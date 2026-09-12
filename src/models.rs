@@ -191,6 +191,37 @@ pub struct HistoryQuery {
     pub to:   Option<String>,  // YYYY-MM-DD exclusif
 }
 
+// --- Stats flotte (classement + odomètre) ---
+
+#[derive(Serialize)]
+pub struct BikeLeaderboardEntry {
+    pub bike_id:     String,
+    pub trips:       i64,
+    pub distance_km: f64,
+}
+
+#[derive(Serialize)]
+pub struct FleetStats {
+    pub total_trips:       i64,
+    pub total_distance_km: f64,
+    pub top_bikes:         Vec<BikeLeaderboardEntry>,
+}
+
+#[derive(Deserialize)]
+pub struct FleetStatsQuery {
+    pub city: Option<String>,
+}
+
+// --- Vélos "en fuite" (proches du timeout in-flight) ---
+
+#[derive(Serialize)]
+pub struct OverdueBike {
+    pub bike_id:         String,
+    pub elapsed_minutes: i64,
+    pub dep_lat:         f64,
+    pub dep_lon:         f64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

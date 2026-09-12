@@ -1,5 +1,6 @@
 import { minutesToHHMM, formatTime, tripEndMinutes } from "./trips.js";
 import { findNearestStation } from "./geo.js";
+import { getChartColors } from "./chartTheme.js";
 
 // --- HTML escaping ---
 // bike_id / station names come from BIXI's GBFS feed, not from our own code —
@@ -37,7 +38,6 @@ function applyTheme(theme) {
 
 export function drawHistogram(canvas, allTrips) {
   if (!canvas || allTrips.length === 0) return;
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const ctx = canvas.getContext("2d");
   const W = canvas.offsetWidth || 260;
   const H = canvas.offsetHeight || 32;
@@ -51,7 +51,7 @@ export function drawHistogram(canvas, allTrips) {
     buckets[slot]++;
   }
   const max = Math.max(...buckets, 1);
-  const accent = isDark ? "#00e676" : "#2ecc71";
+  const accent = getChartColors().accent;
   const slotW = W / 48;
 
   ctx.clearRect(0, 0, W, H);
@@ -71,7 +71,7 @@ export function drawHistogram(canvas, allTrips) {
 
 export function drawStationHourChart(canvas, byHour) {
   if (!canvas) return;
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const colors = getChartColors();
   const ctx = canvas.getContext("2d");
   const W = canvas.offsetWidth || 240;
   const H = 52;
@@ -81,7 +81,7 @@ export function drawStationHourChart(canvas, byHour) {
 
   const max = Math.max(...byHour, 1);
   const barW = W / 24;
-  const accent = isDark ? "#00e676" : "#2ecc71";
+  const accent = colors.accent;
 
   ctx.clearRect(0, 0, W, H);
   byHour.forEach((count, i) => {
@@ -97,7 +97,7 @@ export function drawStationHourChart(canvas, byHour) {
   });
 
   // Heure labels every 6h
-  ctx.fillStyle = isDark ? "#5a6480" : "#aaa";
+  ctx.fillStyle = colors.textMuted;
   ctx.font = `${9 * devicePixelRatio / devicePixelRatio}px DM Mono, monospace`;
   ctx.textAlign = "center";
   [0, 6, 12, 18, 23].forEach(h => {
@@ -112,10 +112,10 @@ let dailyChartInstance = null;
 export function drawDailyChart(allTrips) {
   const canvas = document.getElementById("dailyChart");
   if (!canvas) return;
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  const accent = isDark ? "#00e676" : "#2ecc71";
-  const textColor = isDark ? "#9aa3b8" : "#555555";
-  const gridColor = isDark ? "#2a3348" : "#e8e8e8";
+  const colors = getChartColors();
+  const accent = colors.accent;
+  const textColor = colors.textSecondary;
+  const gridColor = colors.border;
 
   const hours = new Array(24).fill(0);
   for (const t of allTrips) {
@@ -170,9 +170,12 @@ let durationChartInstance = null;
 export function drawDurationChart(canvas, allTrips) {
   if (!canvas) return;
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  // Violet distinct de l'accent vert/rouge habituel (var(--accent)) — un choix
+  // délibéré pour ce graphique en particulier, pas un token de theme.css.
   const accent = isDark ? "#a78bfa" : "#7c3aed";
-  const textColor = isDark ? "#9aa3b8" : "#555555";
-  const gridColor = isDark ? "#2a3348" : "#e8e8e8";
+  const colors = getChartColors();
+  const textColor = colors.textSecondary;
+  const gridColor = colors.border;
 
   const bins   = [0, 0, 0, 0, 0, 0, 0, 0];
   const labels = ["<5m", "5-10", "10-15", "15-20", "20-30", "30-45", "45-60", "60+"];
@@ -473,6 +476,37 @@ document.getElementById("departureResults")?.addEventListener("click", (e) => {
   const el = e.target.closest('[data-action="watch-bike"]');
   if (!el) return;
   window.app.watchBike(el.dataset.bikeId);
+});
+
+// --- Vélos "en fuite" (proches du timeout in-flight, voir /api/bikes/overdue) ---
+
+export function renderOverdueBikes(bikes) {
+  const section = document.getElementById("overdueSection");
+  const div = document.getElementById("overdueResults");
+  if (!section || !div) return;
+
+  if (!bikes || bikes.length === 0) {
+    section.style.display = "none";
+    div.innerHTML = "";
+    return;
+  }
+  section.style.display = "";
+
+  const items = bikes.map((b) => `
+    <li class="nearby-arrival-item">
+      <span class="nearby-arrival-bike">🚲 ${escapeHtml(b.bike_id)}</span>
+      <span class="nearby-arrival-ago">${b.elapsed_minutes} min</span>
+      <a href="#" class="nearby-eye-link" data-action="focus-overdue" data-lat="${b.dep_lat}" data-lon="${b.dep_lon}">👁</a>
+    </li>`).join("");
+
+  div.innerHTML = `<ul class="nearby-arrivals">${items}</ul>`;
+}
+
+document.getElementById("overdueResults")?.addEventListener("click", (e) => {
+  const el = e.target.closest('[data-action="focus-overdue"]');
+  if (!el) return;
+  e.preventDefault();
+  window.app.focusOverdue(parseFloat(el.dataset.lat), parseFloat(el.dataset.lon));
 });
 
 // --- Watch status indicator ---

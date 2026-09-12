@@ -7,9 +7,9 @@ use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use chrono_tz::America::Montreal;
 
 use crate::models::{
-    ActiveStats, BikeStatus, BikeStatusQuery, DayStats, DepartingBike,
-    Flow, FlowQuery, HeatPoint, HeatQuery, HistoryQuery,
-    NearbyQuery, SubscribeRequest, Trip, TripQuery, UnsubscribeRequest,
+    ActiveStats, BikeLeaderboardEntry, BikeStatus, BikeStatusQuery, DayStats, DepartingBike,
+    FleetStats, FleetStatsQuery, Flow, FlowQuery, HeatPoint, HeatQuery, HistoryQuery,
+    NearbyQuery, OverdueBike, SubscribeRequest, Trip, TripQuery, UnsubscribeRequest,
     VapidKeyResponse, Zone, ZoneQuery,
 };
 use crate::AppState;
@@ -276,6 +276,35 @@ pub async fn get_departures_nearby(
     Json(bikes)
 }
 
+// --- Vélos "en fuite" : en transit depuis longtemps, proches du timeout
+// in-flight (120 min, voir tracker.rs) sans être forcément revenus dans le
+// flux. Seuil à 90 min = "à surveiller", pas encore expiré. ---
+
+pub async fn get_overdue_bikes(State(state): State<AppState>) -> Json<Vec<OverdueBike>> {
+    const OVERDUE_THRESHOLD_MIN: i64 = 90;
+    let now = Utc::now();
+
+    let flight = match state.in_flight.read() {
+        Ok(f) => f,
+        Err(_) => return Json(vec![]),
+    };
+
+    let mut bikes: Vec<OverdueBike> = flight
+        .iter()
+        .filter_map(|(bike_id, (departed_at, dep_lat, dep_lon))| {
+            let elapsed_minutes = (now - *departed_at).num_minutes();
+            if elapsed_minutes >= OVERDUE_THRESHOLD_MIN {
+                Some(OverdueBike { bike_id: bike_id.clone(), elapsed_minutes, dep_lat: *dep_lat, dep_lon: *dep_lon })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    bikes.sort_by_key(|b| std::cmp::Reverse(b.elapsed_minutes));
+    Json(bikes)
+}
+
 // --- Statut d'un vélo (en route ou arrivé) ---
 
 pub async fn get_bike_status(
@@ -387,6 +416,57 @@ pub async fn get_history(
     }).map_err(|e| { eprintln!("DB query error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
     Ok(Json(rows.filter_map(|r| r.ok()).collect()))
+}
+
+// --- Stats flotte (classement des vélos + odomètre total) ---
+
+pub async fn get_fleet_stats(
+    State(state): State<AppState>,
+    Query(params): Query<FleetStatsQuery>,
+) -> Result<Json<FleetStats>, StatusCode> {
+    let city = params.city.as_deref().unwrap_or("all");
+    let city_filter = match city {
+        "montreal"   => " WHERE start_lon < -72.5",
+        "sherbrooke" => " WHERE start_lon >= -72.5",
+        _            => "",
+    };
+
+    let conn = state.pool.get()
+        .map_err(|e| { eprintln!("DB pool error in get_fleet_stats: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let totals_sql = format!("SELECT COUNT(*), COALESCE(SUM(distance), 0) FROM trips{city_filter}");
+    let (total_trips, total_distance_m): (i64, f64) = conn
+        .query_row(&totals_sql, [], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| { eprintln!("DB query error in get_fleet_stats (totals): {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let top_sql = format!(
+        "SELECT bike_id, COUNT(*) as trips, COALESCE(SUM(distance), 0) as dist
+         FROM trips{city_filter}
+         GROUP BY bike_id
+         ORDER BY dist DESC
+         LIMIT 5"
+    );
+    let mut stmt = conn.prepare(&top_sql)
+        .map_err(|e| { eprintln!("DB prepare error in get_fleet_stats (top): {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    let top_bikes: Vec<BikeLeaderboardEntry> = stmt
+        .query_map([], |row| {
+            let dist_m: f64 = row.get(2)?;
+            Ok(BikeLeaderboardEntry {
+                bike_id:     row.get(0)?,
+                trips:       row.get(1)?,
+                distance_km: dist_m / 1000.0,
+            })
+        })
+        .map_err(|e| { eprintln!("DB query error in get_fleet_stats (top): {e}"); StatusCode::INTERNAL_SERVER_ERROR })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(Json(FleetStats {
+        total_trips,
+        total_distance_km: total_distance_m / 1000.0,
+        top_bikes,
+    }))
 }
 
 // --- Helpers ---

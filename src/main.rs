@@ -66,6 +66,8 @@ async fn main() {
         .route("/api/history",            get(routes::get_history))
         .route("/api/departures/nearby",  get(routes::get_departures_nearby))
         .route("/api/bike/status",        get(routes::get_bike_status))
+        .route("/api/stats",              get(routes::get_fleet_stats))
+        .route("/api/bikes/overdue",      get(routes::get_overdue_bikes))
         .route("/api/push/vapid-public-key", get(routes::get_vapid_key))
         .route("/api/push/subscribe",        post(routes::post_push_subscribe))
         .route("/api/push/unsubscribe",      post(routes::post_push_unsubscribe))
