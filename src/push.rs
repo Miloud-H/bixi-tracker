@@ -49,6 +49,7 @@ pub struct PushTarget {
 }
 
 /// A bike that just reappeared in the GBFS feed after being in-flight.
+#[derive(Debug, PartialEq)]
 pub struct ReturnedBike {
     pub bike_id:     String,
     pub dep_lat:     f64,

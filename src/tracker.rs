@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,7 +8,7 @@ use rusqlite::params;
 use web_push_native::jwt_simple::algorithms::ES256KeyPair;
 
 use crate::db::DbPool;
-use crate::models::{Bike, BikeState, GbfsResponse, InFlightBikes};
+use crate::models::{Bike, BikeState, GbfsResponse, InFlightBikes, InFlightEntry};
 use crate::push::{self, ReturnedBike};
 
 const GBFS_URL: &str = "https://gbfs.velobixi.com/gbfs/en/free_bike_status.json";
@@ -80,43 +80,41 @@ fn load_positions(pool: &DbPool) -> HashMap<String, BikeState> {
     positions
 }
 
-fn load_in_flight(in_flight: &InFlightBikes) {
+// `load_in_flight`/`save_in_flight` work on a plain owned map, not the shared
+// `InFlightBikes` lock — `run()` keeps its own local copy (like `positions`
+// and `disappeared_at`) and only takes the write lock to publish a finished
+// snapshot for route handlers to read (see the `in_flight.write()` call below).
+fn load_in_flight() -> HashMap<String, InFlightEntry> {
+    let mut flight = HashMap::new();
+
     let data = match std::fs::read_to_string(IN_FLIGHT_PATH) {
         Ok(d) => d,
-        Err(_) => return,
+        Err(_) => return flight,
     };
 
     let map: HashMap<String, (String, f64, f64)> = match serde_json::from_str(&data) {
         Ok(m) => m,
-        Err(e) => { eprintln!("Failed to parse in_flight.json (format change?): {e}"); return; }
+        Err(e) => { eprintln!("Failed to parse in_flight.json (format change?): {e}"); return flight; }
     };
 
     let cutoff = Utc::now() - chrono::Duration::minutes(120);
-    let mut count = 0usize;
-
-    if let Ok(mut flight) = in_flight.write() {
-        for (bike_id, (ts_str, lat, lon)) in map {
-            if let Ok(ts) = DateTime::parse_from_rfc3339(&ts_str) {
-                let ts_utc = ts.with_timezone(&Utc);
-                if ts_utc > cutoff {
-                    flight.insert(bike_id, (ts_utc, lat, lon));
-                    count += 1;
-                }
+    for (bike_id, (ts_str, lat, lon)) in map {
+        if let Ok(ts) = DateTime::parse_from_rfc3339(&ts_str) {
+            let ts_utc = ts.with_timezone(&Utc);
+            if ts_utc > cutoff {
+                flight.insert(bike_id, (ts_utc, lat, lon));
             }
         }
     }
 
-    if count > 0 {
-        println!("Restored {} in-flight bikes from disk", count);
+    if !flight.is_empty() {
+        println!("Restored {} in-flight bikes from disk", flight.len());
     }
+
+    flight
 }
 
-fn save_in_flight(in_flight: &InFlightBikes) {
-    let flight = match in_flight.read() {
-        Ok(f) => f,
-        Err(_) => return,
-    };
-
+fn save_in_flight(flight: &HashMap<String, InFlightEntry>) {
     let map: HashMap<&String, (String, f64, f64)> = flight
         .iter()
         .map(|(id, (ts, lat, lon))| (id, (ts.to_rfc3339(), *lat, *lon)))
@@ -210,10 +208,121 @@ fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     speed_kmh >= 3.0 && speed_kmh < 50.0
 }
 
+/// Result of one poll's worth of pure state transition (see `process_poll`).
+struct PollOutcome {
+    positions:      HashMap<String, BikeState>,
+    disappeared_at: HashMap<String, DateTime<Utc>>,
+    flight:         HashMap<String, InFlightEntry>,
+    detected_trips: Vec<(String, String, f64, f64, f64, f64, f64)>,
+    just_returned:  Vec<ReturnedBike>,
+}
+
+/// The whole per-poll decision logic — trip detection, absence debouncing,
+/// in-flight tracking and expiry — as one pure function of the previous state
+/// and the freshly-fetched bike list. No I/O (network/DB/file) happens here,
+/// which is the whole point: `run()` does I/O around this call, and the tests
+/// below exercise the state machine directly without a DB pool or a live feed.
+fn process_poll(
+    bikes: &[Bike],
+    now: DateTime<Utc>,
+    mut positions: HashMap<String, BikeState>,
+    mut disappeared_at: HashMap<String, DateTime<Utc>>,
+    mut flight: HashMap<String, InFlightEntry>,
+) -> PollOutcome {
+    let available_ids: HashSet<&str> = bikes.iter()
+        .filter(|b| b.is_available())
+        .map(|b| b.bike_id.as_str())
+        .collect();
+
+    let mut detected: Vec<(String, String, f64, f64, f64, f64, f64)> = Vec::new();
+    let mut returned: Vec<String> = Vec::new();
+
+    for bike in bikes {
+        let (lat, lon) = normalize_coords(bike);
+
+        if !is_valid_position(lat, lon) {
+            continue;
+        }
+
+        if let Some(prev) = positions.get(&bike.bike_id) {
+            let p1 = point!(x: prev.lon, y: prev.lat);
+            let p2 = point!(x: lon, y: lat);
+            let distance = Haversine::distance(p1, p2);
+            let duration = (now - prev.timestamp).num_seconds() as f64;
+
+            if is_valid_trip(distance, duration) {
+                detected.push((
+                    bike.bike_id.clone(),
+                    prev.timestamp.to_rfc3339(),
+                    prev.lat, prev.lon,
+                    lat, lon,
+                    distance,
+                ));
+                returned.push(bike.bike_id.clone());
+            }
+        }
+
+        disappeared_at.remove(&bike.bike_id);
+
+        if bike.is_available() {
+            positions.insert(
+                bike.bike_id.clone(),
+                BikeState { lat, lon, timestamp: now },
+            );
+        } else {
+            positions.remove(&bike.bike_id);
+        }
+    }
+
+    for id in positions.keys() {
+        if !available_ids.contains(id.as_str()) {
+            disappeared_at.entry(id.clone()).or_insert(now);
+        }
+    }
+    disappeared_at.retain(|id, _| !available_ids.contains(id.as_str()));
+
+    // Bikes that were in-flight and are visible again in this poll — captured
+    // before the flight map is mutated below, so callers can push-notify watchers.
+    let just_returned: Vec<ReturnedBike> = flight.iter()
+        .filter(|(id, _)| available_ids.contains(id.as_str()))
+        .filter_map(|(id, &(departed_at, dep_lat, dep_lon))| {
+            let arr = positions.get(id)?;
+            Some(ReturnedBike {
+                bike_id:      id.clone(),
+                dep_lat, dep_lon,
+                arr_lat: arr.lat, arr_lon: arr.lon,
+                elapsed_min: (now - departed_at).num_minutes(),
+            })
+        })
+        .collect();
+
+    for (id, &first_absent) in &disappeared_at {
+        if (now - first_absent).num_seconds() >= MIN_ABSENT_SECS
+            && !flight.contains_key(id)
+        {
+            let (dep_lat, dep_lon) = positions.get(id)
+                .map(|p| (p.lat, p.lon))
+                .unwrap_or((0.0, 0.0));
+            flight.insert(id.clone(), (first_absent, dep_lat, dep_lon));
+        }
+    }
+    for id in &returned {
+        flight.remove(id);
+    }
+    // Keep only bikes still absent from the feed and within the 2h window.
+    // Without this, returned bikes linger until timeout inflating the count.
+    flight.retain(|id, (start, _, _)| {
+        disappeared_at.contains_key(id)
+            && (now - *start).num_minutes() < 120
+    });
+
+    PollOutcome { positions, disappeared_at, flight, detected_trips: detected, just_returned }
+}
+
 pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256KeyPair>) {
     let client = reqwest::Client::new();
     let mut positions = load_positions(&pool);
-    load_in_flight(&in_flight);
+    let mut flight = load_in_flight();
     let mut disappeared_at: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut polls_since_cleanup = 0u32;
     const CLEANUP_EVERY_N_POLLS: u32 = 240; // ~1h avec un poll toutes les 15s
@@ -225,107 +334,26 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256Key
             Ok(res) => {
                 if let Ok(gbfs) = res.json::<GbfsResponse>().await {
                     let now = Utc::now();
-                    let available_ids: std::collections::HashSet<&str> = gbfs.data.bikes.iter()
-                        .filter(|b| b.is_available())
-                        .map(|b| b.bike_id.as_str())
-                        .collect();
 
-                    let mut detected: Vec<(String, String, f64, f64, f64, f64, f64)> = Vec::new();
-                    let mut returned: Vec<String> = Vec::new();
+                    let outcome = process_poll(&gbfs.data.bikes, now, positions, disappeared_at, flight);
+                    positions = outcome.positions;
+                    disappeared_at = outcome.disappeared_at;
+                    flight = outcome.flight;
 
-                    for bike in &gbfs.data.bikes {
-                        let (lat, lon) = normalize_coords(bike);
-
-                        if !is_valid_position(lat, lon) {
-                            continue;
-                        }
-
-                        if let Some(prev) = positions.get(&bike.bike_id) {
-                            let p1 = point!(x: prev.lon, y: prev.lat);
-                            let p2 = point!(x: lon, y: lat);
-                            let distance = Haversine::distance(p1, p2);
-                            let duration = (now - prev.timestamp).num_seconds() as f64;
-
-                            if is_valid_trip(distance, duration) {
-                                detected.push((
-                                    bike.bike_id.clone(),
-                                    prev.timestamp.to_rfc3339(),
-                                    prev.lat, prev.lon,
-                                    lat, lon,
-                                    distance,
-                                ));
-                                returned.push(bike.bike_id.clone());
-                            }
-                        }
-
-                        disappeared_at.remove(&bike.bike_id);
-
-                        if bike.is_available() {
-                            positions.insert(
-                                bike.bike_id.clone(),
-                                BikeState { lat, lon, timestamp: now },
-                            );
-                        } else {
-                            positions.remove(&bike.bike_id);
-                        }
+                    // Publish the finished snapshot for route handlers to read — the
+                    // lock is only held for this cheap replace, not the computation above.
+                    if let Ok(mut shared) = in_flight.write() {
+                        *shared = flight.clone();
                     }
 
-                    for id in positions.keys() {
-                        if !available_ids.contains(id.as_str()) {
-                            disappeared_at.entry(id.clone()).or_insert(now);
-                        }
-                    }
-                    disappeared_at.retain(|id, _| !available_ids.contains(id.as_str()));
-
-                    let just_returned: Vec<ReturnedBike> = {
-                        let mut flight = in_flight.write().unwrap();
-
-                        // Bikes that were in-flight and are visible again in this poll —
-                        // captured before mutation so watchers can be notified below.
-                        let just_returned: Vec<ReturnedBike> = flight.iter()
-                            .filter(|(id, _)| available_ids.contains(id.as_str()))
-                            .filter_map(|(id, &(departed_at, dep_lat, dep_lon))| {
-                                let arr = positions.get(id)?;
-                                Some(ReturnedBike {
-                                    bike_id:      id.clone(),
-                                    dep_lat, dep_lon,
-                                    arr_lat: arr.lat, arr_lon: arr.lon,
-                                    elapsed_min: (now - departed_at).num_minutes(),
-                                })
-                            })
-                            .collect();
-
-                        for (id, &first_absent) in &disappeared_at {
-                            if (now - first_absent).num_seconds() >= MIN_ABSENT_SECS
-                                && !flight.contains_key(id)
-                            {
-                                let (dep_lat, dep_lon) = positions.get(id)
-                                    .map(|p| (p.lat, p.lon))
-                                    .unwrap_or((0.0, 0.0));
-                                flight.insert(id.clone(), (first_absent, dep_lat, dep_lon));
-                            }
-                        }
-                        for id in &returned {
-                            flight.remove(id);
-                        }
-                        // Keep only bikes still absent from the feed and within the 2h window.
-                        // Without this, returned bikes linger until timeout inflating the count.
-                        flight.retain(|id, (start, _, _)| {
-                            disappeared_at.contains_key(id)
-                                && (now - *start).num_minutes() < 120
-                        });
-
-                        just_returned
-                    };
-
-                    for bike in &just_returned {
-                        let distance_m = detected.iter()
+                    for bike in &outcome.just_returned {
+                        let distance_m = outcome.detected_trips.iter()
                             .find(|t| t.0 == bike.bike_id)
                             .map(|t| t.6);
                         push::notify_bike_returned(&pool, &client, &vapid_key, bike, distance_m).await;
                     }
 
-                    let new_trips = insert_trips(&pool, &detected, &now.to_rfc3339());
+                    let new_trips = insert_trips(&pool, &outcome.detected_trips, &now.to_rfc3339());
 
                     if new_trips > 0 {
                         println!(
@@ -336,7 +364,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256Key
                     }
 
                     save_positions(&pool, &positions);
-                    save_in_flight(&in_flight);
+                    save_in_flight(&flight);
 
                     polls_since_cleanup += 1;
                     if polls_since_cleanup >= CLEANUP_EVERY_N_POLLS {
@@ -359,6 +387,10 @@ mod tests {
 
     fn bike(lat: f64, lon: f64) -> Bike {
         Bike { bike_id: "T1".to_string(), lat, lon, is_reserved: 0, is_disabled: 0 }
+    }
+
+    fn mk_bike(id: &str, lat: f64, lon: f64) -> Bike {
+        Bike { bike_id: id.to_string(), lat, lon, is_reserved: 0, is_disabled: 0 }
     }
 
     #[test]
@@ -416,5 +448,153 @@ mod tests {
     fn valid_position_rejects_out_of_range() {
         assert!(!is_valid_position(0.0, 0.0));
         assert!(!is_valid_position(45.5, -80.0));
+    }
+
+    // --- process_poll: the in-flight state machine ---
+
+    #[test]
+    fn process_poll_leaves_a_present_bike_untouched() {
+        let now = Utc::now();
+        let bikes = vec![mk_bike("B1", 45.5, -73.6)];
+
+        let outcome = process_poll(&bikes, now, HashMap::new(), HashMap::new(), HashMap::new());
+
+        assert!(outcome.flight.is_empty());
+        assert!(outcome.disappeared_at.is_empty());
+        assert!(outcome.positions.contains_key("B1"));
+    }
+
+    #[test]
+    fn process_poll_does_not_flight_a_bike_absent_less_than_debounce() {
+        // A bike missing from this single poll shouldn't be flighted immediately —
+        // MIN_ABSENT_SECS (45s) exists precisely to filter one-off feed hiccups.
+        let now = Utc::now();
+        let mut positions = HashMap::new();
+        positions.insert("B1".to_string(), BikeState { lat: 45.5, lon: -73.6, timestamp: now });
+
+        let outcome = process_poll(&[], now, positions, HashMap::new(), HashMap::new());
+
+        assert!(outcome.flight.is_empty(), "must not flight a bike the instant it disappears");
+        assert!(outcome.disappeared_at.contains_key("B1"), "must still start tracking its absence");
+    }
+
+    #[test]
+    fn process_poll_flights_a_bike_absent_past_debounce() {
+        let t0 = Utc::now();
+        let now = t0 + chrono::Duration::seconds(46);
+
+        let mut positions = HashMap::new();
+        positions.insert("B1".to_string(), BikeState { lat: 45.5, lon: -73.6, timestamp: t0 - chrono::Duration::minutes(5) });
+        let mut disappeared_at = HashMap::new();
+        disappeared_at.insert("B1".to_string(), t0);
+
+        let outcome = process_poll(&[], now, positions, disappeared_at, HashMap::new());
+
+        let entry = outcome.flight.get("B1").expect("must be flighted past the 45s debounce");
+        assert_eq!(entry.0, t0, "departure time must be the first-absence time, not the current poll time");
+        assert_eq!((entry.1, entry.2), (45.5, -73.6));
+    }
+
+    #[test]
+    fn process_poll_expires_a_bike_past_120_minutes() {
+        let t0 = Utc::now();
+        let now = t0 + chrono::Duration::minutes(121);
+
+        let mut flight = HashMap::new();
+        flight.insert("B1".to_string(), (t0, 45.5, -73.6));
+        let mut disappeared_at = HashMap::new();
+        disappeared_at.insert("B1".to_string(), t0);
+
+        let outcome = process_poll(&[], now, HashMap::new(), disappeared_at, flight);
+
+        assert!(outcome.flight.is_empty(), "a bike stuck in-flight past 120 min must be dropped, not left to linger forever");
+    }
+
+    #[test]
+    fn process_poll_keeps_a_bike_in_flight_just_under_120_minutes() {
+        let t0 = Utc::now();
+        let now = t0 + chrono::Duration::minutes(119);
+
+        let mut flight = HashMap::new();
+        flight.insert("B1".to_string(), (t0, 45.5, -73.6));
+        let mut disappeared_at = HashMap::new();
+        disappeared_at.insert("B1".to_string(), t0);
+
+        let outcome = process_poll(&[], now, HashMap::new(), disappeared_at, flight);
+
+        assert!(outcome.flight.contains_key("B1"));
+    }
+
+    #[test]
+    fn process_poll_reports_return_and_clears_flight_on_reappearance() {
+        let t0 = Utc::now();
+        let now = t0 + chrono::Duration::minutes(10);
+
+        let mut positions = HashMap::new();
+        positions.insert("B1".to_string(), BikeState { lat: 45.500, lon: -73.600, timestamp: t0 });
+        let mut disappeared_at = HashMap::new();
+        disappeared_at.insert("B1".to_string(), t0);
+        let mut flight = HashMap::new();
+        flight.insert("B1".to_string(), (t0, 45.500, -73.600));
+
+        // Reappears ~1km away — a plausible 10-minute ride (~6 km/h).
+        let bikes = vec![mk_bike("B1", 45.509, -73.600)];
+
+        let outcome = process_poll(&bikes, now, positions, disappeared_at, flight);
+
+        assert!(outcome.flight.is_empty(), "must clear the flight entry once the bike is back");
+        assert_eq!(outcome.just_returned.len(), 1);
+        let ret = &outcome.just_returned[0];
+        assert_eq!(ret.bike_id, "B1");
+        assert_eq!(ret.elapsed_min, 10);
+        assert_eq!(outcome.detected_trips.len(), 1, "the gap between last-seen and reappearance must register as a trip");
+    }
+
+    #[test]
+    fn process_poll_ignores_return_of_a_bike_that_was_never_flighted() {
+        // A bike absent for under the debounce threshold, then back — no flight
+        // entry ever existed, so there must be nothing to report as "returned".
+        let now = Utc::now();
+        let bikes = vec![mk_bike("B1", 45.5, -73.6)];
+
+        let outcome = process_poll(&bikes, now, HashMap::new(), HashMap::new(), HashMap::new());
+
+        assert!(outcome.just_returned.is_empty());
+    }
+
+    #[test]
+    fn process_poll_garbage_position_on_reappearance_falsely_clears_flight() {
+        // Documents a latent edge case, not a spec: `available_ids` is built from
+        // `is_available()` alone (see the GBFS filter above), without checking
+        // position validity. A bike that reappears in the feed but reports
+        // out-of-bounds coordinates (a known GBFS quirk — see `is_valid_position`)
+        // still counts as "available", so `disappeared_at.retain` drops it — and
+        // through the `disappeared_at.contains_key` guard, `flight.retain` drops
+        // it too — even though its position was never actually updated this poll
+        // (the per-bike loop `continue`s before reaching that bike's disappeared_at
+        // removal or position update). `just_returned` still fires, using the
+        // stale departure position as both departure AND arrival, and a push
+        // notification would go out for an arrival we don't actually have evidence
+        // of. Pinned here so a future change to this logic is a deliberate choice,
+        // not a silent behavior change either way.
+        let t0 = Utc::now();
+        let now = t0 + chrono::Duration::minutes(10);
+
+        let mut positions = HashMap::new();
+        positions.insert("B1".to_string(), BikeState { lat: 45.500, lon: -73.600, timestamp: t0 });
+        let mut disappeared_at = HashMap::new();
+        disappeared_at.insert("B1".to_string(), t0);
+        let mut flight = HashMap::new();
+        flight.insert("B1".to_string(), (t0, 45.500, -73.600));
+
+        // Reappears, but with garbage coordinates — outside is_valid_position's bounds.
+        let bikes = vec![mk_bike("B1", 0.0, 0.0)];
+
+        let outcome = process_poll(&bikes, now, positions, disappeared_at, flight);
+
+        assert!(outcome.flight.is_empty(), "current behavior: dropped from flight despite no real position update");
+        assert_eq!(outcome.just_returned.len(), 1);
+        let ret = &outcome.just_returned[0];
+        assert_eq!((ret.arr_lat, ret.arr_lon), (45.500, -73.600), "arrival is the stale departure position, not real data");
     }
 }
