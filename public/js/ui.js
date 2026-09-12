@@ -478,6 +478,29 @@ export function renderWatchHistory(entries) {
   div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
 }
 
+// --- Prévision météo (estimation de trajets) ---
+
+export function renderRidingForecast(days) {
+  const div = document.getElementById("forecastPanel");
+  if (!div) return;
+
+  if (!days || days.length === 0) {
+    div.innerHTML = `<div class="nearby-empty">Prévision indisponible.</div>`;
+    return;
+  }
+
+  const labels = ["Aujourd'hui", "Demain"];
+  const items = days.slice(0, 2).map((d, i) => `
+    <div class="forecast-row">
+      <span class="forecast-day">${labels[i] || d.day}</span>
+      <span class="forecast-emoji" title="${d.text}">${d.emoji}</span>
+      <span class="forecast-text">${d.text}</span>
+      <span class="forecast-meta">${Math.round(d.tempMean)}°C · ${d.precipSum >= 0.5 ? Math.round(d.precipSum) + " mm" : "sec"} · ~${d.predicted.toLocaleString("fr-CA")} trajets</span>
+    </div>`).join("");
+
+  div.innerHTML = items;
+}
+
 // --- Timeline player ---
 
 export class TimelinePlayer {

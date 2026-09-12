@@ -9,9 +9,11 @@ import {
   drawDurationChart, destroyDurationChart,
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
   renderDeparturesPanel, renderWatchStatus, renderWatchHistory,
+  renderRidingForecast,
   setPlayingState, TimelinePlayer,
 } from "./ui.js";
 import { setPendingWatch, recordArrival, getHistory, clearHistory } from "./watchHistory.js";
+import { fetchRidingForecast } from "./weatherForecast.js";
 
 const GBFS_STATIONS_URL  = "https://gbfs.velobixi.com/gbfs/en/station_information.json";
 const RELOAD_INTERVAL_MS = 30_000;
@@ -211,6 +213,20 @@ class App {
     setInterval(() => this.refreshActive(), ACTIVE_INTERVAL_MS);
     this.updateRangeSliderPct(this.timeSlider);
     this.updateRangeSliderPct(this.distSlider);
+    this.loadRidingForecast();
+  }
+
+  // Estimation indicative du volume de trajets attendu (météo Open-Meteo +
+  // modèle entraîné sur une saison, voir weatherForecast.js) — non-critique,
+  // ne doit jamais faire échouer le reste de l'app si l'API est indisponible.
+  async loadRidingForecast() {
+    try {
+      const days = await fetchRidingForecast();
+      renderRidingForecast(days);
+    } catch (e) {
+      console.error("Riding forecast unavailable:", e);
+      renderRidingForecast(null);
+    }
   }
 
   goToNow() {

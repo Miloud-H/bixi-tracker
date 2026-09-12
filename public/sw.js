@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v10';
+const CACHE = 'bixi-v11';
 const STATIC = [
   '/',
   '/index.html',
@@ -19,6 +19,7 @@ const STATIC = [
   '/js/ui.js',
   '/js/tiles.js',
   '/js/watchHistory.js',
+  '/js/weatherForecast.js',
   '/icons/icon.svg',
 ];
 
@@ -44,7 +45,15 @@ self.addEventListener('fetch', e => {
   // une requête qui mute des données côté serveur.
   if (e.request.method !== 'GET') return;
 
-  const { pathname } = new URL(e.request.url);
+  const url = new URL(e.request.url);
+
+  // Ressources externes (tuiles Esri, GBFS, Open-Meteo, CDN…) : on laisse le
+  // navigateur gérer son propre cache HTTP plutôt que de les figer dans le
+  // cache du SW pour toujours — sinon une prévision météo ou une liste de
+  // stations fraîchement modifiée resterait bloquée sur sa première réponse.
+  if (url.origin !== self.location.origin) return;
+
+  const { pathname } = url;
 
   // HTML et API : réseau en priorité, cache en fallback offline
   // → l'utilisateur voit toujours la dernière version dès qu'il a du réseau

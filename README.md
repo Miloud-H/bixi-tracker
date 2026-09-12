@@ -76,6 +76,8 @@ public/
     ui.js       # Panels, charts, alerts, timeline player, theme (initTheme/toggleTheme)
     geo.js      # Haversine, station lookup, city config
     tiles.js    # Esri basemap (base + labels overlay), theme-aware tile switcher
+    watchHistory.js    # localStorage: personal history of watched bikes
+    weatherForecast.js # Open-Meteo forecast + rough trip-count estimate (indicative only, see analysis/)
 ```
 
 All four pages are ES modules and share `ui.js` (theme), `tiles.js` (the three map pages), and `trips.js`'s `localToday()` — no page reimplements its own theme toggling or tile setup anymore.
