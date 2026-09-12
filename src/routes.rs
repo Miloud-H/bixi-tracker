@@ -479,6 +479,14 @@ pub async fn get_fleet_stats(
 
 // --- Helpers ---
 
+// `.single().unwrap()` below is safe specifically because these are always
+// midnight and 23:59:59: North American DST transitions land at 2:00-3:00
+// local time (the "spring forward" hour doesn't exist, the "fall back" hour
+// is ambiguous — either would make `.single()` return None), and neither
+// bound ever falls in that window. This would NOT be safe for an arbitrary
+// time of day — see `day_bounds_survive_both_dst_transitions` below, which
+// exercises Montréal's actual 2026 transition dates rather than just
+// asserting it in a comment.
 fn day_bounds_utc(date: NaiveDate) -> (String, String) {
     let start = Montreal
         .from_local_datetime(&date.and_hms_opt(0, 0, 0).unwrap())
@@ -583,6 +591,26 @@ mod tests {
         assert!(end_dt > start_dt);
         let span_secs = (end_dt - start_dt).num_seconds();
         assert!((86_000..=86_400).contains(&span_secs), "expected ~24h span, got {span_secs}s");
+    }
+
+    #[test]
+    fn day_bounds_survive_both_dst_transitions() {
+        // Proves the `.single().unwrap()` safety claim above empirically
+        // instead of just by comment: Montréal's actual 2026 transition
+        // dates (spring forward loses an hour, fall back repeats one) —
+        // must not panic, and a "spring forward" day is ~1h shorter.
+        let spring_forward = NaiveDate::from_ymd_opt(2026, 3, 8).unwrap();
+        let fall_back       = NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+
+        let (s1, e1) = day_bounds_utc(spring_forward);
+        let (s2, e2) = day_bounds_utc(fall_back);
+
+        let span = |s: &str, e: &str| {
+            (DateTime::parse_from_rfc3339(e).unwrap() - DateTime::parse_from_rfc3339(s).unwrap())
+                .num_seconds()
+        };
+        assert!((82_000..=82_800).contains(&span(&s1, &e1)), "spring-forward day should be ~23h");
+        assert!((89_600..=90_000).contains(&span(&s2, &e2)), "fall-back day should be ~25h");
     }
 
     /// In-memory `AppState` for calling a route handler directly (no HTTP

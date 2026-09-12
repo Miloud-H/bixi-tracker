@@ -169,7 +169,11 @@ pub fn snap_nearest_for_city(lat: f64, lon: f64, city: &str) -> Option<&'static 
             let d = haversine_km(lat, lon, *zl, *zo);
             if d <= MAX_SNAP_KM { Some((*name, d)) } else { None }
         })
-        .min_by(|(_, da), (_, db)| da.partial_cmp(db).unwrap())
+        // total_cmp rather than partial_cmp().unwrap(): distances should
+        // never be NaN (they come from validated lat/lon), but total_cmp
+        // gives a total order unconditionally instead of panicking if that
+        // assumption is ever violated by a future caller.
+        .min_by(|(_, da), (_, db)| da.total_cmp(db))
         .map(|(name, _)| name)
 }
 
@@ -207,5 +211,13 @@ mod tests {
         // A Sherbrooke zone's own coordinates must not match under "montreal".
         let (_, lat, lon, _) = ZONES.iter().find(|(_, _, _, c)| *c == "sherbrooke").unwrap();
         assert_eq!(snap_nearest_for_city(*lat, *lon, "montreal"), None);
+    }
+
+    #[test]
+    fn snap_does_not_panic_on_nan_input() {
+        // Regression guard for the old partial_cmp().unwrap(): a NaN distance
+        // used to panic the whole request instead of just returning something.
+        let _ = snap_nearest_for_city(f64::NAN, -73.5, "montreal");
+        let _ = snap_nearest_for_city(45.5, f64::NAN, "montreal");
     }
 }

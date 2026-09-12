@@ -330,7 +330,14 @@ fn process_poll(
 }
 
 pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256KeyPair>) {
-    let client = reqwest::Client::new();
+    // Without an explicit timeout, reqwest's default Client will wait
+    // forever on a hung GBFS response — silently freezing the entire tracker
+    // (no more trips recorded, in-flight state goes stale) with no error to
+    // even log. 10s is comfortably under the 15s poll interval.
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .expect("failed to build the GBFS HTTP client");
     let mut positions = load_positions(&pool);
     let mut flight = load_in_flight();
     let mut disappeared_at: HashMap<String, DateTime<Utc>> = HashMap::new();
