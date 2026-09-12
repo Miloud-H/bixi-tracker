@@ -435,6 +435,40 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   font-size: 12px;
 }
 
+/* ── Vélos en fuite (repliable, voir renderOverdueBikes) ── */
+.overdue-section { padding: 8px 16px; }
+.overdue-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.overdue-toggle-left { display: flex; align-items: center; gap: 6px; }
+.overdue-chevron {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.overdue-toggle.open .overdue-chevron { transform: rotate(90deg); }
+.overdue-title { margin-bottom: 0; }
+.overdue-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 15%, transparent);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.overdue-section #overdueResults { margin-top: 8px; }
+
 /* ── Prévision météo ── */
 #forecastPanel { font-size: 11px; }
 .forecast-line {

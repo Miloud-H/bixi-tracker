@@ -479,11 +479,25 @@ document.getElementById("departureResults")?.addEventListener("click", (e) => {
 });
 
 // --- Vélos "en fuite" (proches du timeout in-flight, voir /api/bikes/overdue) ---
+// Repliable comme le classement des vélos sur History : replié par défaut
+// (localStorage), pour ne pas monopoliser la sidebar dès qu'il y a 4-5 vélos.
+
+let overdueOpen = localStorage.getItem("bixi-overdue-open") === "1";
+
+function applyOverdueOpen() {
+  const toggle = document.getElementById("overdueToggle");
+  const list = document.getElementById("overdueResults");
+  if (!toggle || !list) return;
+  toggle.classList.toggle("open", overdueOpen);
+  toggle.setAttribute("aria-expanded", String(overdueOpen));
+  list.hidden = !overdueOpen;
+}
 
 export function renderOverdueBikes(bikes) {
   const section = document.getElementById("overdueSection");
   const div = document.getElementById("overdueResults");
-  if (!section || !div) return;
+  const count = document.getElementById("overdueCount");
+  if (!section || !div || !count) return;
 
   if (!bikes || bikes.length === 0) {
     section.style.display = "none";
@@ -491,6 +505,7 @@ export function renderOverdueBikes(bikes) {
     return;
   }
   section.style.display = "";
+  count.textContent = bikes.length;
 
   const items = bikes.map((b) => `
     <li class="nearby-arrival-item">
@@ -500,7 +515,14 @@ export function renderOverdueBikes(bikes) {
     </li>`).join("");
 
   div.innerHTML = `<ul class="nearby-arrivals">${items}</ul>`;
+  applyOverdueOpen();
 }
+
+document.getElementById("overdueToggle")?.addEventListener("click", () => {
+  overdueOpen = !overdueOpen;
+  localStorage.setItem("bixi-overdue-open", overdueOpen ? "1" : "0");
+  applyOverdueOpen();
+});
 
 document.getElementById("overdueResults")?.addEventListener("click", (e) => {
   const el = e.target.closest('[data-action="focus-overdue"]');

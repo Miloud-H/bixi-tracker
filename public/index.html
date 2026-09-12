@@ -108,10 +108,16 @@
       <div id="watchHistoryResults" style="display:none;"></div>
     </section>
 
-    <!-- ── Section : Vélos en fuite (masquée si rien à signaler) ── -->
-    <section class="panel-section" id="overdueSection" style="display:none;">
-      <div class="section-label" title="En transit depuis plus de 90 min — le timeout est à 120 min. Souvent un vélo mal reverrouillé ou une anomalie GPS.">🚨 Vélos en fuite ⓘ</div>
-      <div id="overdueResults"></div>
+    <!-- ── Section : Vélos en fuite (masquée si rien à signaler, repliable) ── -->
+    <section class="panel-section overdue-section" id="overdueSection" style="display:none;">
+      <button class="overdue-toggle" id="overdueToggle" aria-expanded="false" title="En transit depuis plus de 90 min — le timeout est à 120 min. Souvent un vélo mal reverrouillé ou une anomalie GPS.">
+        <span class="overdue-toggle-left">
+          <span class="overdue-chevron">▸</span>
+          <span class="section-label overdue-title">🚨 Vélos en fuite</span>
+        </span>
+        <span class="overdue-count" id="overdueCount">0</span>
+      </button>
+      <div id="overdueResults" hidden></div>
     </section>
 
     <!-- ── Section : Recherche ── -->
