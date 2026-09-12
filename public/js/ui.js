@@ -493,7 +493,7 @@ export function renderRidingForecast(days) {
   const items = days.slice(0, 2).map((d, i) => `
     <div class="forecast-line" title="${d.text}">
       <strong>${labels[i] || d.day}</strong>
-      ${d.emoji} ${Math.round(d.tempMean)}°C · ${d.precipSum >= 0.5 ? Math.round(d.precipSum) + " mm" : "sec"} · ~${d.predicted.toLocaleString("fr-CA")} trajets
+      ${d.emoji} ${Math.round(d.tempMean)}°C · ${d.precipSum >= 0.5 ? Math.round(d.precipSum) + " mm" : "sec"} · ≈${d.predicted.toLocaleString("fr-CA")} trajets
     </div>`).join("");
 
   div.innerHTML = items;
