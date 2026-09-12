@@ -12,6 +12,11 @@
 ///   - Res_Plateau_Centre : 18 stations non couvertes (couloir Sherbrooke / bas-Plateau)
 ///   - Res_Frontenac      : 10 stations non couvertes (couloir Frontenac / Rosemont-Est)
 ///   - Res_Beaubien       :  8 stations non couvertes (Beaubien / Petite-Patrie)
+///   - 2026-09-12 : Chambly, Sainte-Julie, Saint-Eustache, Sainte-Thérèse — BIXI a étendu
+///     le service à ces banlieues (confirmé via le flux GBFS live, chacune à 18-22 km de
+///     la zone Montréal la plus proche donc hors du rayon de snap de 900 m). Restent dans
+///     le bucket ville "montreal" (même filtre `lon < -72.5`) — ce ne sont pas une 3e ville,
+///     juste de nouvelles zones dans le bucket existant.
 pub const ZONES: &[(&str, f64, f64, &str)] = &[
     // ── Montréal — Transit (5) ──────────────────────────────────────────
     ("Transit_Gare_Centrale",  45.5000, -73.5665, "montreal"), // 21 stations — REM / VIA / exo
@@ -66,6 +71,16 @@ pub const ZONES: &[(&str, f64, f64, &str)] = &[
     ("Res_CDN",             45.4960, -73.6310, "montreal"),
     // Notre-Dame-de-Grâce
     ("Res_NDG",             45.4720, -73.6305, "montreal"), //  2 stations
+
+    // ── Montréal — Banlieues éloignées (4) ──────────────────────────────
+    // Toujours ville "montreal" (lon < -72.5) — ce sont des zones dans le
+    // bucket existant, pas une nouvelle ville. Isolées géographiquement
+    // (18-22 km de la zone montréalaise la plus proche), donc sans elles
+    // ces trajets ne matchaient aucune zone à moins de 900 m.
+    ("Chambly",         45.4474, -73.2783, "montreal"), //  4 stations — Bourgogne / Langevin
+    ("Sainte_Julie",    45.5823, -73.3243, "montreal"), //  5 stations — Terminus Ste-Julie
+    ("Saint_Eustache",  45.5576, -73.8890, "montreal"), // 16 stations — Mairie de St-Eustache
+    ("Sainte_Therese",  45.6391, -73.8262, "montreal"), //  6 stations — Place Gabriel-Labelle
 
     // ── Sherbrooke (8) ──────────────────────────────────────────────────
     ("Sherbrooke_Centre_Ville",     45.4040, -71.8929, "sherbrooke"),
