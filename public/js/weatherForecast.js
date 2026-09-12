@@ -15,7 +15,7 @@ const MODEL = { intercept: 4069.04, temp: 444.62, precip: -234.77, weekend: -144
 // donc une seule estimation "système" basée sur Montréal reste représentative.
 const MONTREAL = { lat: 45.5019, lon: -73.5674 };
 
-function predictTrips(tempMean, precipSum, isWeekend) {
+export function predictTrips(tempMean, precipSum, isWeekend) {
   const raw = MODEL.intercept
     + MODEL.temp * tempMean
     + MODEL.precip * precipSum
@@ -23,7 +23,7 @@ function predictTrips(tempMean, precipSum, isWeekend) {
   return Math.max(0, Math.round(raw / 50) * 50);
 }
 
-function describe(predicted, precipSum) {
+export function describe(predicted, precipSum) {
   if (precipSum >= 5)   return { emoji: "🌧️", text: "Pluie prévue" };
   if (predicted >= 12000) return { emoji: "☀️", text: "Excellente journée pour rouler" };
   if (predicted >= 8000)  return { emoji: "🙂", text: "Bonne journée pour rouler" };

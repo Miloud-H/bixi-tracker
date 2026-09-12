@@ -22,6 +22,9 @@ jobs:
               - 'Cargo.lock'
             frontend:
               - 'public/**'
+              - 'tests/**'
+              - 'package.json'
+              - 'eslint.config.js'
 
       - name: Cache Cargo
         if: steps.filter.outputs.rust == 'true'
@@ -54,10 +57,11 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Lint frontend
+      - name: Test and lint frontend
         if: steps.filter.outputs.frontend == 'true'
         run: |
           npm ci
+          npm test
           npm run lint
 
       - name: Install musl tools

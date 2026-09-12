@@ -48,16 +48,17 @@ Server starts on `http://localhost:3000`. Static files are served from `public/`
 cargo test
 ```
 
-Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping, group detection, day-bounds math, the VAPID key encoding, the in-flight state machine (`process_poll` in `tracker.rs`: absence debouncing, 120-min expiry, return detection), and the DB cutoff-based cleanup jobs (`db.rs`, against an in-memory SQLite pool) — live alongside the code they test in `#[cfg(test)] mod tests` blocks. No test DB file or network needed. CI runs this before every build; a failing test blocks deployment.
+Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping, group detection, day-bounds math, the VAPID key encoding, the in-flight state machine (`process_poll` in `tracker.rs`: absence debouncing, 120-min expiry, return detection), the DB cutoff-based cleanup jobs (`db.rs`, against an in-memory SQLite pool), and the API cache's TTL expiry (`cache.rs`, against a fake, manually-advanced clock — see `Clock`/`FakeClock`, no real sleeping needed) — live alongside the code they test in `#[cfg(test)] mod tests` blocks. No test DB file or network needed. CI runs this before every build; a failing test blocks deployment.
 
-### Frontend linting
+### Frontend testing and linting
 
 ```bash
 npm ci
+npm test    # node --test — the pure logic in geo.js/trips.js/watchHistory.js/weatherForecast.js
 npm run lint
 ```
 
-ESLint (flat config, `eslint.config.js`) over `public/js/` and `public/sw.js` — no build step, no bundler, just static analysis (this is exactly what caught `heatmap.js`'s `loadData(today)` referencing an undefined variable). CI runs it whenever `public/**` changes; a failing lint blocks deployment the same way a failing `cargo test` does.
+`npm test` runs Node's built-in test runner (`node:test`/`node:assert`, no new dependency) over `tests/*.test.js` — haversine/nearest-station math, the Montréal timezone conversions (pinned across both DST offsets, EDT and EST), the watch-history localStorage flow (against a minimal in-memory `localStorage` stand-in), and the weather → trip-count regression math. ESLint (flat config, `eslint.config.js`) covers `public/js/`, `public/sw.js`, and `tests/` — no build step, no bundler, just static analysis (this is exactly what caught `heatmap.js`'s `loadData(today)` referencing an undefined variable). CI runs both whenever `public/**`, `tests/**`, or the frontend tooling config changes; a failure in either blocks deployment the same way a failing `cargo test` does.
 
 ## Project Structure
 
@@ -65,7 +66,7 @@ ESLint (flat config, `eslint.config.js`) over `public/js/` and `public/sw.js` �
 src/
   main.rs      # Pool init, VAPID key load, tracker spawn, router setup
   db.rs        # SQLite schema + WAL mode, stale-row cleanup
-  cache.rs      # Tiny in-memory TTL cache (flows/heatmap)
+  cache.rs      # Tiny in-memory TTL cache (flows/heatmap), injectable Clock for testing
   error.rs     # AppError — one IntoResponse impl for every DB-backed route, see routes.rs
   tracker.rs   # GBFS polling loop, trip detection, in-flight tracking, push triggers
   push.rs      # VAPID key, Web Push sending, subscription notify-and-clear
@@ -94,6 +95,12 @@ public/
     watchHistory.js    # localStorage: personal history of watched bikes
     weatherForecast.js # Open-Meteo forecast + rough trip-count estimate (indicative only, see analysis/)
     chartTheme.js      # getChartColors() — Chart.js/canvas colors read from theme.css custom properties
+
+tests/
+  geo.test.js            # haversine, nearest-station snap, trip color hue spread
+  trips.test.js          # Montréal tz conversion (EDT+EST), slider/distance filters
+  watchHistory.test.js   # localStorage-backed watch history (in-memory storage stand-in)
+  weatherForecast.test.js # the weather → predicted-trips regression math
 ```
 
 All four pages are ES modules and share `ui.js` (theme), `tiles.js` (the three map pages), and `trips.js`'s `localToday()` — no page reimplements its own theme toggling or tile setup anymore.
