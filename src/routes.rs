@@ -402,7 +402,13 @@ pub async fn get_history(
             let e = format!("{}T04:00:00+00:00", to);
             (s, " AND end_time < ?2", Some(e))
         } else {
-            let days = params.days.unwrap_or(30);
+            // chrono::Duration::days panics outside ~±106 billion days — a
+            // huge `?days=` value (e.g. days=999999999999999) reaches that
+            // unvalidated otherwise and takes down the request with an
+            // unhandled panic. 0 already means "everything" below, so
+            // clamping the top end to a generous 10 years changes nothing
+            // for any real caller.
+            let days = params.days.unwrap_or(30).clamp(0, 3650);
             let s = if days <= 0 {
                 "2000-01-01T00:00:00+00:00".to_string()
             } else {
@@ -666,5 +672,26 @@ mod tests {
             result.0.is_empty(),
             "the June trip must stay excluded — an injected clause must not bypass the date filter"
         );
+    }
+
+    /// Regression test: `chrono::Duration::days` panics outside ~±106
+    /// billion days, and `days` used to reach it unclamped straight from
+    /// the query string — `GET /api/history?days=999999999999999` took down
+    /// that request with an unhandled panic (verified against a live
+    /// server: the connection was dropped, though the process itself
+    /// survived and kept serving other requests fine).
+    #[tokio::test]
+    async fn get_history_clamps_an_absurd_days_value_instead_of_panicking() {
+        let state = memory_state();
+        let query = HistoryQuery {
+            days: Some(999_999_999_999_999),
+            city: None,
+            from: None,
+            to:   None,
+        };
+
+        let result = get_history(State(state), Query(query)).await;
+
+        assert!(result.is_ok(), "must not panic on an out-of-range days value");
     }
 }

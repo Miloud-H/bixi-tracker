@@ -141,7 +141,7 @@ Zone-to-zone trip counts aggregated by hour, with average distance and duration.
 
 ### `GET /api/history?days=30&city=all|montreal|sherbrooke[&from=YYYY-MM-DD&to=YYYY-MM-DD]`
 
-Daily trip counts. Use `from`/`to` for an explicit date range (used by period comparison).
+Daily trip counts. Use `from`/`to` for an explicit date range (used by period comparison). `days` is clamped to [0, 3650] — `chrono::Duration::days` panics on an absurd input (verified: `?days=999999999999999` used to drop the connection, though the process itself survived).
 
 ### `GET /api/zones[?city=montreal|sherbrooke]`
 
