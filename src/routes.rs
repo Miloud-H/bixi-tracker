@@ -387,19 +387,22 @@ pub async fn get_history(
         _            => "",
     };
 
-    let (start_utc, end_clause) = if let (Some(from), Some(to)) = (&params.from, &params.to) {
-        let s = format!("{}T04:00:00+00:00", from);
-        let e = format!("{}T04:00:00+00:00", to);
-        (s, format!(" AND end_time < '{e}'"))
-    } else {
-        let days = params.days.unwrap_or(30);
-        let s = if days <= 0 {
-            "2000-01-01T00:00:00+00:00".to_string()
+    // `to`, like `from`, must be a *bound* parameter (?2), never interpolated
+    // into the SQL text — it's raw user input from the query string.
+    let (start_utc, end_clause, to_bound): (String, &str, Option<String>) =
+        if let (Some(from), Some(to)) = (&params.from, &params.to) {
+            let s = format!("{}T04:00:00+00:00", from);
+            let e = format!("{}T04:00:00+00:00", to);
+            (s, " AND end_time < ?2", Some(e))
         } else {
-            (Utc::now() - Duration::days(days)).to_rfc3339()
+            let days = params.days.unwrap_or(30);
+            let s = if days <= 0 {
+                "2000-01-01T00:00:00+00:00".to_string()
+            } else {
+                (Utc::now() - Duration::days(days)).to_rfc3339()
+            };
+            (s, "", None)
         };
-        (s, String::new())
-    };
 
     let conn = state.pool.get().ctx("get_history: pool")?;
 
@@ -413,7 +416,12 @@ pub async fn get_history(
 
     let mut stmt = conn.prepare(&sql).ctx("get_history: prepare")?;
 
-    let rows = stmt.query_map([&start_utc], |row| {
+    let mut bind_params: Vec<&dyn rusqlite::types::ToSql> = vec![&start_utc];
+    if let Some(to_val) = &to_bound {
+        bind_params.push(to_val);
+    }
+
+    let rows = stmt.query_map(rusqlite::params_from_iter(bind_params), |row| {
         Ok(DayStats { date: row.get(0)?, count: row.get(1)? })
     }).ctx("get_history: query")?;
 
@@ -575,5 +583,53 @@ mod tests {
         assert!(end_dt > start_dt);
         let span_secs = (end_dt - start_dt).num_seconds();
         assert!((86_000..=86_400).contains(&span_secs), "expected ~24h span, got {span_secs}s");
+    }
+
+    /// In-memory `AppState` for calling a route handler directly (no HTTP
+    /// layer) — same `:memory:` + `max_size(1)` pattern as `db.rs`'s tests.
+    fn memory_state() -> AppState {
+        let manager = r2d2_sqlite::SqliteConnectionManager::memory();
+        let pool = r2d2::Pool::builder().max_size(1).build(manager).unwrap();
+        crate::db::init_schema(&pool).unwrap();
+        AppState {
+            pool,
+            in_flight:        std::sync::Arc::new(std::sync::RwLock::new(HashMap::new())),
+            flow_cache:       crate::cache::ApiCache::new(300),
+            heat_cache:       crate::cache::ApiCache::new(300),
+            vapid_public_key: String::new(),
+        }
+    }
+
+    /// Regression test for the SQL injection fixed alongside this test:
+    /// `HistoryQuery.to` used to be interpolated straight into the SQL text
+    /// (`format!(" AND end_time < '{e}'")`) instead of bound like `from`
+    /// already was. A `to` value crafted to break out of that string literal
+    /// (`' OR '1'='1`) would have turned the WHERE clause always-true,
+    /// leaking trips well outside the requested date range.
+    #[tokio::test]
+    async fn get_history_to_param_is_bound_not_interpolated() {
+        let state = memory_state();
+        {
+            let conn = state.pool.get().unwrap();
+            conn.execute(
+                "INSERT INTO trips (bike_id, start_time, start_lat, start_lon, end_time, end_lat, end_lon, distance)
+                 VALUES ('B1', '2026-06-01T11:50:00+00:00', 45.5, -73.6, '2026-06-01T12:00:00+00:00', 45.51, -73.61, 500)",
+                [],
+            ).unwrap();
+        }
+
+        let query = HistoryQuery {
+            days: None,
+            city: None,
+            from: Some("2025-01-01".to_string()),
+            to:   Some("2026-01-01' OR 1=1 --".to_string()),
+        };
+
+        let result = get_history(State(state), Query(query)).await.unwrap();
+
+        assert!(
+            result.0.is_empty(),
+            "the June trip must stay excluded — an injected clause must not bypass the date filter"
+        );
     }
 }

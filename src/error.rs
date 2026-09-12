@@ -7,6 +7,7 @@ use axum::response::{IntoResponse, Response};
 /// connection couldn't be obtained, a query failed, etc. The real cause is
 /// logged server-side via `IntoResponse`; the client only ever sees the
 /// generic status code, never DB internals.
+#[derive(Debug)]
 pub struct AppError(String);
 
 /// Attaches a short call-site label to a fallible result before it becomes an
