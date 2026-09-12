@@ -48,6 +48,30 @@ pub struct PushTarget {
     pub auth:     String,
 }
 
+// Known Web Push service hosts (Chrome/Edge/Opera/Brave via FCM, Firefox,
+// Safari). `reqwest::Url` is reqwest's own re-export of the `url` crate —
+// no extra dependency.
+const ALLOWED_PUSH_HOSTS: &[&str] = &[
+    "fcm.googleapis.com",
+    "updates.push.services.mozilla.com",
+    "web.push.apple.com",
+];
+
+/// Guards against SSRF: `endpoint` comes straight from an unauthenticated
+/// `POST /api/push/subscribe` body, and is later used verbatim as the target
+/// of a server-initiated HTTP request (`send_push`, triggered whenever the
+/// watched bike returns). Without this check, anyone could point the server
+/// at an arbitrary URL of their choosing — and since any in-flight bike_id
+/// works as a trigger, at a whole fleet of them, for repeated outbound
+/// requests over time rather than a single one-off.
+pub fn is_known_push_host(endpoint: &str) -> bool {
+    reqwest::Url::parse(endpoint)
+        .ok()
+        .filter(|u| u.scheme() == "https")
+        .and_then(|u| u.host_str().map(|h| ALLOWED_PUSH_HOSTS.contains(&h)))
+        .unwrap_or(false)
+}
+
 /// A bike that just reappeared in the GBFS feed after being in-flight.
 #[derive(Debug, PartialEq)]
 pub struct ReturnedBike {
@@ -72,6 +96,14 @@ pub async fn send_push(
     target:  &PushTarget,
     payload: &serde_json::Value,
 ) -> PushOutcome {
+    // Defense in depth: post_push_subscribe already rejects unknown hosts at
+    // registration time, but this is the actual point where an SSRF would
+    // fire, so it's checked again here rather than trusting every row already
+    // in the table stayed valid (e.g. if it were ever populated another way).
+    if !is_known_push_host(&target.endpoint) {
+        return PushOutcome::Failed;
+    }
+
     let Ok(endpoint) = target.endpoint.parse() else { return PushOutcome::Failed };
 
     let Ok(p256dh_bytes) = Base64UrlUnpadded::decode_vec(&target.p256dh) else { return PushOutcome::Failed };
@@ -174,6 +206,35 @@ pub async fn notify_bike_returned(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepts_known_push_hosts() {
+        assert!(is_known_push_host("https://fcm.googleapis.com/fcm/send/abc123"));
+        assert!(is_known_push_host("https://updates.push.services.mozilla.com/wpush/v2/xyz"));
+        assert!(is_known_push_host("https://web.push.apple.com/some-id"));
+    }
+
+    #[test]
+    fn rejects_an_arbitrary_attacker_controlled_host() {
+        // The SSRF case this exists to stop: nothing about this URL is
+        // otherwise invalid, it's just not a real push service.
+        assert!(!is_known_push_host("https://evil.example.com/steal-me"));
+    }
+
+    #[test]
+    fn rejects_non_https_and_malformed_input() {
+        assert!(!is_known_push_host("http://fcm.googleapis.com/fcm/send/abc123"), "must require https");
+        assert!(!is_known_push_host("not a url at all"));
+        assert!(!is_known_push_host(""));
+    }
+
+    #[test]
+    fn rejects_a_lookalike_host() {
+        // e.g. "fcm.googleapis.com.evil.com" or "evilfcm.googleapis.com" —
+        // exact host match only, no substring/prefix/suffix matching.
+        assert!(!is_known_push_host("https://fcm.googleapis.com.evil.com/x"));
+        assert!(!is_known_push_host("https://notfcm.googleapis.com/x"));
+    }
 
     /// Regression test for the bug fixed in 63ebc4d: ES256PublicKey::to_bytes()
     /// returns the *compressed* SEC1 point (33 bytes), which browsers reject

@@ -341,6 +341,13 @@ pub async fn post_push_subscribe(
     State(state): State<AppState>,
     Json(body): Json<SubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
+    // SSRF guard: `endpoint` is attacker-controlled and later becomes the
+    // target of a server-initiated HTTP request (push::send_push) — see
+    // push::is_known_push_host for why this can't just accept anything.
+    if !crate::push::is_known_push_host(&body.subscription.endpoint) {
+        return Ok(StatusCode::BAD_REQUEST);
+    }
+
     let conn = state.pool.get().ctx("post_push_subscribe: pool")?;
 
     conn.execute(

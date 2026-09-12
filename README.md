@@ -48,7 +48,7 @@ Server starts on `http://localhost:3000`. Static files are served from `public/`
 cargo test
 ```
 
-Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping (including a NaN-input guard), group detection, day-bounds math (pinned against Montréal's actual 2026 DST transition dates, not just asserted safe by comment), the VAPID key encoding, the in-flight state machine (`process_poll` in `tracker.rs`: absence debouncing, 120-min expiry, return detection), the DB cutoff-based cleanup jobs (`db.rs`, against an in-memory SQLite pool), and the API cache's TTL expiry (`cache.rs`, against a fake, manually-advanced clock — see `Clock`/`FakeClock`, no real sleeping needed) — live alongside the code they test in `#[cfg(test)] mod tests` blocks. A couple of route handlers also have direct tests where the stakes warranted it (see `get_history_to_param_is_bound_not_interpolated` — a SQL injection regression test built by calling the handler directly against an in-memory DB, no HTTP layer needed). No test DB file or network needed. CI runs this before every build; a failing test blocks deployment.
+Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping (including a NaN-input guard), group detection, day-bounds math (pinned against Montréal's actual 2026 DST transition dates, not just asserted safe by comment), the VAPID key encoding, the push-endpoint host allowlist (`push::is_known_push_host` — accepts real push hosts, rejects an arbitrary host, a non-HTTPS URL, and a lookalike host), the in-flight state machine (`process_poll` in `tracker.rs`: absence debouncing, 120-min expiry, return detection), the DB cutoff-based cleanup jobs (`db.rs`, against an in-memory SQLite pool), and the API cache's TTL expiry (`cache.rs`, against a fake, manually-advanced clock — see `Clock`/`FakeClock`, no real sleeping needed) — live alongside the code they test in `#[cfg(test)] mod tests` blocks. A couple of route handlers also have direct tests where the stakes warranted it (see `get_history_to_param_is_bound_not_interpolated` — a SQL injection regression test built by calling the handler directly against an in-memory DB, no HTTP layer needed). No test DB file or network needed. CI runs this before every build; a failing test blocks deployment.
 
 ### Frontend testing and linting
 
@@ -173,7 +173,7 @@ Bikes currently in-flight for 90+ minutes (the in-flight timeout is 120 min, see
 
 ### `POST /api/push/subscribe`
 
-Body: `{ "bike_id": "...", "subscription": <PushSubscription.toJSON() output> }`. Registers a one-shot watch — the row is deleted once the bike returns (successful push or not) or after ~3h regardless (see `db::cleanup_push_subscriptions`).
+Body: `{ "bike_id": "...", "subscription": <PushSubscription.toJSON() output> }`. Registers a one-shot watch — the row is deleted once the bike returns (successful push or not) or after ~3h regardless (see `db::cleanup_push_subscriptions`). `subscription.endpoint` is checked against a small allowlist of known Web Push hosts (`push::is_known_push_host`) before it's stored, and again before every send — it's later used as the target of a server-initiated HTTP request, so an unrecognized host is rejected with 400 rather than trusted (SSRF guard).
 
 ### `POST /api/push/unsubscribe`
 
