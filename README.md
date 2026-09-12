@@ -66,6 +66,7 @@ src/
   main.rs      # Pool init, VAPID key load, tracker spawn, router setup
   db.rs        # SQLite schema + WAL mode, stale-row cleanup
   cache.rs      # Tiny in-memory TTL cache (flows/heatmap)
+  error.rs     # AppError — one IntoResponse impl for every DB-backed route, see routes.rs
   tracker.rs   # GBFS polling loop, trip detection, in-flight tracking, push triggers
   push.rs      # VAPID key, Web Push sending, subscription notify-and-clear
   routes.rs    # All API handlers

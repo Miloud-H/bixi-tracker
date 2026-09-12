@@ -22,16 +22,18 @@
 ///     pas une simple banlieue satellite).
 ///
 /// Refresh système 2026-09-12 (suite) : ré-application des mêmes critères de
-/// validation sur le flux GBFS live a trouvé 89 clusters (≥2 stations à <600m,
-/// >900m de toute zone) sur 532 stations non couvertes du bucket "montreal".
-/// Palier traité maintenant : les 13 clusters ≥5 stations (96 stations, cf.
-/// section "Densification" ci-dessous). Restent en TODO — pas traités cette
-/// passe, volume plus faible par zone donc moins rentable :
+/// validation sur le flux GBFS live a trouvé 89 clusters d'au moins 2 stations
+/// à moins de 600 m, toutes à plus de 900 m de toute zone existante — sur 532
+/// stations non couvertes du bucket "montreal". Palier traité maintenant :
+/// les 13 clusters ≥5 stations (96 stations, cf. section "Densification"
+/// ci-dessous). Restent en TODO — pas traités cette passe, volume plus faible
+/// par zone donc moins rentable :
 ///   - 22 clusters de 3-4 stations (~70 stations)
 ///   - 54 clusters de 2 stations (~108 stations)
 ///   - 246 stations isolées, sans cluster (souvent 5-16 km de toute zone —
 ///     Laval, Ouest-de-l'Île, Rive-Nord éloignée — probablement pas assez
 ///     denses pour justifier une zone même en y revenant plus tard)
+///
 /// Script de clustering : analysis/suburb_clustering.py (gitignoré, imprime
 /// aussi les noms de station par cluster pour la curation manuelle des noms).
 pub const ZONES: &[(&str, f64, f64, &str)] = &[

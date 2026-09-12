@@ -205,7 +205,7 @@ fn is_valid_trip(distance_m: f64, duration_secs: f64) -> bool {
     }
 
     let speed_kmh = (distance_m / duration_secs) * 3.6;
-    speed_kmh >= 3.0 && speed_kmh < 50.0
+    (3.0..50.0).contains(&speed_kmh)
 }
 
 /// Result of one poll's worth of pure state transition (see `process_poll`).
@@ -229,8 +229,18 @@ fn process_poll(
     mut disappeared_at: HashMap<String, DateTime<Utc>>,
     mut flight: HashMap<String, InFlightEntry>,
 ) -> PollOutcome {
+    // A bike only counts as "confirmed present" if it's both available and
+    // reporting a position we trust — otherwise a garbage-GPS bike would look
+    // "available" while never actually updating its position or clearing its
+    // disappeared_at/flight entries below, and would falsely trigger a return
+    // notification using its stale last-known position (see the regression
+    // test `process_poll_garbage_position_does_not_falsely_clear_flight`).
     let available_ids: HashSet<&str> = bikes.iter()
         .filter(|b| b.is_available())
+        .filter(|b| {
+            let (lat, lon) = normalize_coords(b);
+            is_valid_position(lat, lon)
+        })
         .map(|b| b.bike_id.as_str())
         .collect();
 
@@ -563,20 +573,15 @@ mod tests {
     }
 
     #[test]
-    fn process_poll_garbage_position_on_reappearance_falsely_clears_flight() {
-        // Documents a latent edge case, not a spec: `available_ids` is built from
-        // `is_available()` alone (see the GBFS filter above), without checking
-        // position validity. A bike that reappears in the feed but reports
-        // out-of-bounds coordinates (a known GBFS quirk — see `is_valid_position`)
-        // still counts as "available", so `disappeared_at.retain` drops it — and
-        // through the `disappeared_at.contains_key` guard, `flight.retain` drops
-        // it too — even though its position was never actually updated this poll
-        // (the per-bike loop `continue`s before reaching that bike's disappeared_at
-        // removal or position update). `just_returned` still fires, using the
-        // stale departure position as both departure AND arrival, and a push
-        // notification would go out for an arrival we don't actually have evidence
-        // of. Pinned here so a future change to this logic is a deliberate choice,
-        // not a silent behavior change either way.
+    fn process_poll_garbage_position_does_not_falsely_clear_flight() {
+        // Regression test: `available_ids` used to be built from `is_available()`
+        // alone, so a bike reappearing with out-of-bounds coordinates (a known
+        // GBFS quirk — see `is_valid_position`) counted as "available" without
+        // ever actually updating its position (the per-bike loop `continue`s on
+        // an invalid position, before touching disappeared_at/positions). That
+        // falsely cleared it from disappeared_at/flight and fired a return
+        // notification using its stale last-known position as both departure
+        // AND arrival. `available_ids` now also requires a valid position.
         let t0 = Utc::now();
         let now = t0 + chrono::Duration::minutes(10);
 
@@ -592,9 +597,7 @@ mod tests {
 
         let outcome = process_poll(&bikes, now, positions, disappeared_at, flight);
 
-        assert!(outcome.flight.is_empty(), "current behavior: dropped from flight despite no real position update");
-        assert_eq!(outcome.just_returned.len(), 1);
-        let ret = &outcome.just_returned[0];
-        assert_eq!((ret.arr_lat, ret.arr_lon), (45.500, -73.600), "arrival is the stale departure position, not real data");
+        assert!(outcome.flight.contains_key("B1"), "must stay in-flight — we have no real evidence it returned");
+        assert!(outcome.just_returned.is_empty(), "must not fire a return notification off a stale position");
     }
 }

@@ -164,10 +164,10 @@ pub async fn notify_bike_returned(
         }
     }
 
-    if let Ok(conn) = pool.get() {
-        if let Err(e) = conn.execute("DELETE FROM push_subscriptions WHERE bike_id = ?1", [&bike.bike_id]) {
-            eprintln!("DB delete error in notify_bike_returned: {e}");
-        }
+    if let Ok(conn) = pool.get()
+        && let Err(e) = conn.execute("DELETE FROM push_subscriptions WHERE bike_id = ?1", [&bike.bike_id])
+    {
+        eprintln!("DB delete error in notify_bike_returned: {e}");
     }
 }
 
