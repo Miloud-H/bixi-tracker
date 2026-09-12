@@ -66,3 +66,25 @@ pub fn cleanup_positions(pool: &DbPool, max_age_secs: i64) {
         Err(e) => eprintln!("DB cleanup error: {e}"),
     }
 }
+
+/// Delete push subscriptions older than the given number of seconds.
+///
+/// A subscription is normally deleted the moment its watched bike returns
+/// (`push::notify_bike_returned`) — but a bike that's lost, stolen, or broken
+/// never triggers that path, so its watch would otherwise linger in the table
+/// forever. `max_age_secs` should comfortably exceed the in-flight timeout
+/// (120 min) so this never races a legitimate, still-active watch.
+pub fn cleanup_push_subscriptions(pool: &DbPool, max_age_secs: i64) {
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(e) => { eprintln!("DB pool error during push subscription cleanup: {e}"); return; }
+    };
+
+    let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();
+
+    match conn.execute("DELETE FROM push_subscriptions WHERE created_at < ?1", [&cutoff]) {
+        Ok(n) if n > 0 => println!("🧹 Cleaned up {n} orphaned push subscription(s)"),
+        Ok(_) => {}
+        Err(e) => eprintln!("DB cleanup error: {e}"),
+    }
+}

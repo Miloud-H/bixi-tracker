@@ -1,6 +1,7 @@
 # Rust build artifacts
 /target/
-Cargo.lock
+# Cargo.lock is tracked — this is a binary (src/main.rs), not a library,
+# so the lockfile should be committed for reproducible builds.
 
 # Claude Code internal state
 .claude/
@@ -24,3 +25,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Scratch data-analysis workspace (DB snapshots, one-off scripts, generated reports)
+/analysis/

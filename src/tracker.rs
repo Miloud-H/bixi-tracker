@@ -35,6 +35,10 @@ fn normalize_coords(bike: &Bike) -> (f64, f64) {
 
 const MAX_POSITION_AGE_SECS: i64 = 300;
 
+// Comfortably past the 120-min in-flight timeout, so this never deletes a
+// still-active watch — only ones whose bike never came back.
+const PUSH_SUBSCRIPTION_MAX_AGE_SECS: i64 = 3 * 60 * 60;
+
 fn load_positions(pool: &DbPool) -> HashMap<String, BikeState> {
     let conn = match pool.get() {
         Ok(c) => c,
@@ -337,6 +341,7 @@ pub async fn run(pool: DbPool, in_flight: InFlightBikes, vapid_key: Arc<ES256Key
                     polls_since_cleanup += 1;
                     if polls_since_cleanup >= CLEANUP_EVERY_N_POLLS {
                         crate::db::cleanup_positions(&pool, MAX_POSITION_AGE_SECS);
+                        crate::db::cleanup_push_subscriptions(&pool, PUSH_SUBSCRIPTION_MAX_AGE_SECS);
                         polls_since_cleanup = 0;
                     }
                 }
