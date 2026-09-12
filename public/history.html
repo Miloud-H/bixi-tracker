@@ -46,7 +46,7 @@
       <button class="ctrl-btn" id="btnCompare">⇄ Comparer</button>
       <button class="ctrl-btn" id="btnWeekday">📆 Par jour</button>
       <div class="ctrl-sep"></div>
-      <button class="ctrl-btn" id="btnWeather" title="Superposer la température (Montréal)">🌡️ Météo</button>
+      <button class="ctrl-btn" id="btnWeather" title="Superposer température et jours de pluie (Montréal)">🌡️ Météo</button>
     </div>
 
     <div id="statsRow">
@@ -72,7 +72,16 @@
       <canvas id="historyChart"></canvas>
     </div>
 
-    <div id="fleetStats"></div>
+    <div id="fleetStats">
+      <button class="fleet-toggle" id="fleetToggle" aria-expanded="false">
+        <span class="fleet-toggle-left">
+          <span class="fleet-chevron">▸</span>
+          <span class="fleet-title">🏆 Classement des vélos</span>
+        </span>
+        <span class="fleet-odometer" id="fleetOdometer">—</span>
+      </button>
+      <ul class="fleet-list" id="fleetList" hidden></ul>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>

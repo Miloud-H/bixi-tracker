@@ -21,16 +21,25 @@ async function fetchWeatherRange(fromDate, toDate) {
   if (weatherCache.has(key)) return weatherCache.get(key);
 
   const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${MONTREAL.lat}&longitude=${MONTREAL.lon}` +
-    `&start_date=${fromDate}&end_date=${toDate}&daily=temperature_2m_mean&timezone=America%2FToronto`;
+    `&start_date=${fromDate}&end_date=${toDate}&daily=temperature_2m_mean,precipitation_sum&timezone=America%2FToronto`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
   const data = await res.json();
 
   const byDate = {};
-  data.daily.time.forEach((d, i) => { byDate[d] = data.daily.temperature_2m_mean[i]; });
+  data.daily.time.forEach((d, i) => {
+    byDate[d] = {
+      temp:   data.daily.temperature_2m_mean[i],
+      precip: data.daily.precipitation_sum[i],
+    };
+  });
   weatherCache.set(key, byDate);
   return byDate;
 }
+
+// Même seuil que l'analyse météo (weather_correlation.py) : un jour "de pluie"
+// a plus de 1mm de précipitations, pas juste une trace.
+const RAIN_MM = 1;
 
 function toYMD(date) {
   return date.toISOString().split('T')[0];
@@ -85,24 +94,43 @@ async function loadFleetStats() {
   }
 }
 
-function renderFleetStats(stats) {
-  const el = document.getElementById('fleetStats');
-  if (!el) return;
+const MEDALS = ['🥇', '🥈', '🥉'];
 
+function renderFleetStats(stats) {
+  const listEl = document.getElementById('fleetList');
+  const odoEl  = document.getElementById('fleetOdometer');
+  if (!listEl || !odoEl) return;
+
+  odoEl.textContent = `${Math.round(stats.total_distance_km).toLocaleString('fr-CA')} km parcourus au total`;
+
+  const maxDist = Math.max(...stats.top_bikes.map(b => b.distance_km), 1);
   const rows = stats.top_bikes.map((b, i) => `
-    <li class="fleet-row">
-      <span class="fleet-rank">#${i + 1}</span>
-      <span class="fleet-bike">🚲 ${escapeHtml(b.bike_id)}</span>
+    <li class="fleet-row ${i < 3 ? 'is-top' : ''}">
+      <span class="fleet-rank">${MEDALS[i] ?? `#${i + 1}`}</span>
+      <span class="fleet-bike">${escapeHtml(b.bike_id)}</span>
+      <div class="fleet-bar-wrap"><div class="fleet-bar" style="--w:${(b.distance_km / maxDist * 100).toFixed(0)}%"></div></div>
       <span class="fleet-meta">${b.trips.toLocaleString('fr-CA')} trajets · ${Math.round(b.distance_km).toLocaleString('fr-CA')} km</span>
     </li>`).join('');
 
-  el.innerHTML = `
-    <div class="fleet-header">
-      <span class="fleet-title">🏆 Classement des vélos</span>
-      <span class="fleet-odometer">${Math.round(stats.total_distance_km).toLocaleString('fr-CA')} km parcourus au total</span>
-    </div>
-    <ul class="fleet-list">${rows || '<li class="fleet-empty">Aucune donnée.</li>'}</ul>`;
+  listEl.innerHTML = rows || '<li class="fleet-empty">Aucune donnée.</li>';
 }
+
+// ── Collapsible : replié par défaut, état mémorisé par appareil ──
+const fleetToggle = document.getElementById('fleetToggle');
+const fleetList   = document.getElementById('fleetList');
+let fleetOpen = localStorage.getItem('bixi-fleet-open') === '1';
+
+function applyFleetOpen() {
+  fleetList.hidden = !fleetOpen;
+  fleetToggle.setAttribute('aria-expanded', String(fleetOpen));
+  fleetToggle.classList.toggle('open', fleetOpen);
+}
+applyFleetOpen();
+fleetToggle.addEventListener('click', () => {
+  fleetOpen = !fleetOpen;
+  localStorage.setItem('bixi-fleet-open', fleetOpen ? '1' : '0');
+  applyFleetOpen();
+});
 
 function rollingAvg(values, window = 7) {
   return values.map((_, i) => {
@@ -201,19 +229,27 @@ async function render(data, prevData) {
   if (weatherOn && !prevData && data.length) {
     try {
       const wx = await fetchWeatherRange(data[0].date, data[data.length - 1].date);
+      const precipByDay = labels.map(d => wx[d]?.precip ?? 0);
       datasets.push({
         type: 'line',
         label: 'Température moy. (Montréal)',
-        data: labels.map(d => wx[d] ?? null),
+        data: labels.map(d => wx[d]?.temp ?? null),
         borderColor: '#ffab40',
         backgroundColor: 'transparent',
         borderWidth: 1.5,
         borderDash: [4, 3],
-        pointRadius: 0,
+        // Un point visible seulement les jours de pluie -- la ligne reste
+        // fine sinon, la pluie ressort d'un coup d'œil sans surcharger le
+        // graphique.
+        pointRadius: precipByDay.map(p => p >= RAIN_MM ? 4 : 0),
+        pointHoverRadius: precipByDay.map(p => p >= RAIN_MM ? 6 : 3),
+        pointBackgroundColor: '#29b6f6',
         tension: 0.3,
         spanGaps: true,
         yAxisID: 'temp',
         order: 0,
+        isWeather: true,
+        precipByDay,
       });
       showWeatherAxis = true;
     } catch (e) {
@@ -242,6 +278,12 @@ async function render(data, prevData) {
           borderWidth: 1,
           callbacks: {
             label: ctx => {
+              if (ctx.dataset.isWeather) {
+                if (ctx.parsed.y == null) return null;
+                const precip = ctx.dataset.precipByDay?.[ctx.dataIndex] ?? 0;
+                const rain = precip >= RAIN_MM ? ` · 🌧️ ${precip.toFixed(1)} mm` : '';
+                return `${ctx.dataset.label} : ${Math.round(ctx.parsed.y)}°C${rain}`;
+              }
               const v = Math.round(ctx.parsed.y).toLocaleString('fr-CA');
               if (ctx.dataset.prevDates) {
                 const d = ctx.dataset.prevDates[ctx.dataIndex] ?? '';

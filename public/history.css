@@ -129,38 +129,56 @@ h1 span { color: #a78bfa; }
 
 #historyChart { width: 100% !important; }
 
-/* ── Classement des vélos / odomètre ── */
+/* ── Classement des vélos / odomètre (collapsible) ── */
 #fleetStats {
   background: rgba(14, 17, 23, 0.7);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 16px 20px;
+  padding: 0 20px;
   margin-top: 16px;
+  overflow: hidden;
 }
-.fleet-header {
+.fleet-toggle {
+  width: 100%;
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 10px;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
 }
+.fleet-toggle-left { display: flex; align-items: center; gap: 8px; }
+.fleet-chevron {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.fleet-toggle.open .fleet-chevron { transform: rotate(90deg); }
 .fleet-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .fleet-odometer { font-size: 12px; color: #a78bfa; font-weight: 600; }
-.fleet-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fleet-list { list-style: none; padding: 0 0 14px; display: flex; flex-direction: column; gap: 4px; }
 .fleet-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 7px 8px;
   border-radius: 6px;
   background: rgba(255,255,255,0.03);
   font-size: 12px;
 }
-.fleet-rank { color: var(--text-muted); font-weight: 700; min-width: 20px; }
-.fleet-bike { color: var(--text-primary); font-weight: 600; flex: 1; }
+.fleet-row.is-top { background: rgba(167,139,250,0.12); }
+.fleet-rank { font-size: 13px; min-width: 22px; text-align: center; }
+.fleet-bike { color: var(--text-primary); font-weight: 600; min-width: 80px; }
+.fleet-bar-wrap { flex: 1; height: 4px; min-width: 40px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.fleet-bar { height: 100%; width: var(--w, 0%); background: linear-gradient(90deg, #a78bfa, #7c5cf0); border-radius: 2px; }
 .fleet-meta { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
-.fleet-empty { color: var(--text-muted); font-size: 12px; padding: 4px 0; }
+.fleet-empty { color: var(--text-muted); font-size: 12px; padding: 4px 0 14px; }
 
 /* ── Loader ── */
 #loader {
@@ -202,4 +220,6 @@ h1 span { color: #a78bfa; }
 [data-theme="light"] #chartWrap { background: rgba(255,255,255,0.96); }
 [data-theme="light"] #fleetStats { background: rgba(255,255,255,0.96); }
 [data-theme="light"] .fleet-row { background: rgba(0,0,0,0.02); }
+[data-theme="light"] .fleet-row.is-top { background: rgba(167,139,250,0.1); }
+[data-theme="light"] .fleet-bar-wrap { background: rgba(0,0,0,0.06); }
 [data-theme="light"] #loader { background: #f0f2f5; }
