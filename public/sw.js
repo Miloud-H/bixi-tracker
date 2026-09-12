@@ -1,4 +1,4 @@
-const CACHE = 'bixi-v13';
+const CACHE = 'bixi-v14';
 const STATIC = [
   '/',
   '/index.html',
@@ -90,7 +90,7 @@ self.addEventListener('fetch', e => {
 // Notification push envoyée par le serveur (fonctionne même app fermée / écran verrouillé)
 self.addEventListener('push', e => {
   let data = {};
-  try { data = e.data ? e.data.json() : {}; } catch (err) { /* payload non-JSON, on ignore */ }
+  try { data = e.data ? e.data.json() : {}; } catch { /* payload non-JSON, on ignore */ }
 
   const title = data.title || '🚲 Vélo arrivé !';
   const body  = data.body  || 'Le vélo suivi est revenu dans le flux.';

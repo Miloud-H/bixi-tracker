@@ -192,8 +192,8 @@ function render(hour) {
   }
 
   document.getElementById('statsDisplay').innerHTML = selectedZone
-    ? `Focus sur <b style="color:#fff">${zoneLabel(selectedZone)}</b>`
-    : `<b style="color:#9aa3b8">${totalTransfers}</b> trajets entre zones · ${hourFlows.length} connexions actives`;
+    ? `Focus sur <b class="stat-focus-name">${zoneLabel(selectedZone)}</b>`
+    : `<b>${totalTransfers}</b> trajets entre zones · ${hourFlows.length} connexions actives`;
 
   const slider = document.getElementById('hourSlider');
   slider.style.setProperty('--pct', ((hour / 23) * 100) + '%');

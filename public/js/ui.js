@@ -1,6 +1,17 @@
 import { minutesToHHMM, formatTime, tripEndMinutes } from "./trips.js";
 import { findNearestStation } from "./geo.js";
 
+// --- HTML escaping ---
+// bike_id / station names come from BIXI's GBFS feed, not from our own code —
+// external data, even if not directly user-supplied. Never trust it verbatim
+// inside innerHTML (a station name containing e.g. "<img onerror=...>" would
+// otherwise execute).
+export function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 // --- Theme ---
 
 export function initTheme() {
@@ -288,14 +299,14 @@ export function updateTopStations(trips, stations) {
   }
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   if (top.length === 0) {
-    panel.innerHTML = `<div style="color:var(--text-muted);font-size:11px;padding:6px 0;">Aucune donnée pour cette sélection</div>`;
+    panel.innerHTML = `<div class="panel-hint">Aucune donnée pour cette sélection</div>`;
     return;
   }
   const maxCount = top[0][1];
   panel.innerHTML = top.map(([name, count]) => `
     <div class="stat-row">
-      <span class="stat-label" title="${name}">${name}</span>
-      <div class="stat-bar-wrap"><div class="stat-bar" style="width:${(count / maxCount * 100).toFixed(0)}%"></div></div>
+      <span class="stat-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+      <div class="stat-bar-wrap"><div class="stat-bar" style="--w:${(count / maxCount * 100).toFixed(0)}%"></div></div>
       <span class="stat-count">${count}</span>
     </div>`).join("");
 }
@@ -315,28 +326,34 @@ export function showAlert(message) {
   }, 4000);
 }
 
-// --- Bike search panel ---
+// --- Bike search panel + Group panel ---
+// Les deux partagent #bikeResults ; les items cliquables portent juste
+// data-action/data-index, un seul listener délégué gère les deux (le
+// contenu est régénéré via innerHTML donc rien à réattacher par item).
 
-export function renderBikePanel(trips, stations, onFocus) {
+let _bikePanelTrips = [];   // dernier trips[] passé à renderBikePanel
+let _groupPanelTrips = [];  // dernier members[] passé à renderGroupPanel
+
+export function renderBikePanel(trips, stations) {
   const container = document.getElementById("bikeResults");
+  _bikePanelTrips = trips;
   if (trips.length === 0) {
-    container.innerHTML = `<div style="color:var(--text-muted);padding:8px 0;font-size:12px;">Aucun trajet trouvé pour cet ID.</div>`;
+    container.innerHTML = `<div class="panel-empty">Aucun trajet trouvé pour cet ID.</div>`;
     return;
   }
-  let html = `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${trips.length} trajet(s) sur la période</div><ul>`;
-  trips.forEach((t) => {
+  let html = `<div class="panel-meta">${trips.length} trajet(s) sur la période</div><ul>`;
+  trips.forEach((t, i) => {
     const from = findNearestStation(stations, t.start_lat, t.start_lon)?.name ?? "Hors station";
     const to   = findNearestStation(stations, t.end_lat,   t.end_lon)?.name   ?? "Hors station";
     const dist = Math.round(t.distance);
     html += `
       <li>
         <span class="time">${formatTime(t.start_time)} → ${formatTime(t.end_time)}</span>
-        <span style="color:var(--text-muted);font-size:10px;margin-left:6px;">${dist} m</span><br>
-        <span style="color:var(--text-secondary);font-size:11px;">
-          ${from}<br>↓ ${to}
+        <span class="trip-dist">${dist} m</span><br>
+        <span class="trip-stations">
+          ${escapeHtml(from)}<br>↓ ${escapeHtml(to)}
         </span>
-        <button onclick="${onFocus}(${t.start_lat},${t.start_lon},${t.end_lat},${t.end_lon})"
-                style="width:auto;padding:2px 8px;margin-top:4px;">Voir</button>
+        <button class="btn-voir" data-action="focus-bike-trip" data-index="${i}">Voir</button>
       </li>`;
   });
   container.innerHTML = html + "</ul>";
@@ -344,31 +361,53 @@ export function renderBikePanel(trips, stations, onFocus) {
 
 // --- Group panel ---
 
-export function renderGroupPanel(groupId, members, stations, onFocus) {
+export function renderGroupPanel(groupId, members) {
   const container = document.getElementById("bikeResults");
-  let html = `<b style="color:var(--accent-red);">Groupe #${groupId} — ${members.length} vélos</b><ul style="margin-top:6px;padding:0;">`;
-  members.forEach((t) => {
+  _groupPanelTrips = members;
+  let html = `<b class="group-title">Groupe #${groupId} — ${members.length} vélos</b><ul class="group-list">`;
+  members.forEach((t, i) => {
     html += `
       <li>
-        🚲 <a href="#" onclick="window.app.searchBike('${t.bike_id}');return false;">${t.bike_id}</a>
-        <span style="font-size:10px;color:var(--text-muted);margin-left:4px;">${formatTime(t.end_time)}</span>
-        <button onclick="window.app.focusTrip(${t.start_lat},${t.start_lon},${t.end_lat},${t.end_lon})"
-                style="float:right;width:auto;padding:0 6px;">👁</button>
+        🚲 <a href="#" data-action="search-bike" data-bike-id="${escapeHtml(t.bike_id)}">${escapeHtml(t.bike_id)}</a>
+        <span class="group-time-inline">${formatTime(t.end_time)}</span>
+        <button class="btn-eye-float" data-action="focus-group-trip" data-index="${i}">👁</button>
       </li>`;
   });
-  html += `</ul><button onclick="window.app.resetStyles()" style="width:100%;margin-top:6px;font-size:11px;">✕ Quitter le focus</button>`;
+  html += `</ul><button class="btn-exit-focus" data-action="reset-styles">✕ Quitter le focus</button>`;
   container.innerHTML = html;
 }
 
+document.getElementById("bikeResults")?.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+
+  if (action === "focus-bike-trip") {
+    const t = _bikePanelTrips[Number(el.dataset.index)];
+    if (t) window.app.focusTrip(t.start_lat, t.start_lon, t.end_lat, t.end_lon);
+  } else if (action === "focus-group-trip") {
+    const t = _groupPanelTrips[Number(el.dataset.index)];
+    if (t) window.app.focusTrip(t.start_lat, t.start_lon, t.end_lat, t.end_lon);
+  } else if (action === "search-bike") {
+    e.preventDefault();
+    window.app.searchBike(el.dataset.bikeId);
+  } else if (action === "reset-styles") {
+    window.app.resetStyles();
+  }
+});
+
 // --- Nearby panel — refonte complète ---
 
-export function renderNearbyPanel(stationName, arrivals, onFocus) {
+let _nearbyArrivals = []; // dernier arrivals[] passé à renderNearbyPanel
+
+export function renderNearbyPanel(stationName, arrivals) {
   const div = document.getElementById("nearbyResults");
+  _nearbyArrivals = arrivals;
 
   const header = `
     <div class="nearby-station-header">
       <span class="nearby-station-icon">📍</span>
-      <span class="nearby-station-name" title="${stationName}">${stationName}</span>
+      <span class="nearby-station-name" title="${escapeHtml(stationName)}">${escapeHtml(stationName)}</span>
     </div>`;
 
   if (arrivals.length === 0) {
@@ -382,16 +421,23 @@ export function renderNearbyPanel(stationName, arrivals, onFocus) {
     const timeAgoLabel = timeAgo === 0 ? "à l'instant" : `il y a ${timeAgo} min`;
     return `
       <li class="nearby-arrival-item ${isLatest ? "is-latest" : ""}">
-        <span class="nearby-arrival-bike">🚲 ${t.bike_id}</span>
+        <span class="nearby-arrival-bike">🚲 ${escapeHtml(t.bike_id)}</span>
         <span class="nearby-arrival-time">${formatTime(t.end_time)}</span>
         <span class="nearby-arrival-ago">${timeAgoLabel}</span>
-        <a href="#" onclick="${onFocus}(${t.start_lat},${t.start_lon},${t.end_lat},${t.end_lon});return false;"
-           style="color:var(--accent);text-decoration:none;font-size:14px;">👁</a>
+        <a href="#" class="nearby-eye-link" data-action="focus-arrival" data-index="${i}">👁</a>
       </li>`;
   }).join("");
 
   div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
 }
+
+document.getElementById("nearbyResults")?.addEventListener("click", (e) => {
+  const el = e.target.closest('[data-action="focus-arrival"]');
+  if (!el) return;
+  e.preventDefault();
+  const t = _nearbyArrivals[Number(el.dataset.index)];
+  if (t) window.app.focusTrip(t.start_lat, t.start_lon, t.end_lat, t.end_lon);
+});
 
 // --- Nearby departures panel ---
 
@@ -401,7 +447,7 @@ export function renderDeparturesPanel(stationName, departures) {
   const header = `
     <div class="nearby-station-header">
       <span class="nearby-station-icon">🚴</span>
-      <span class="nearby-station-name" title="${stationName}">${stationName}</span>
+      <span class="nearby-station-name" title="${escapeHtml(stationName)}">${escapeHtml(stationName)}</span>
     </div>`;
 
   if (departures.length === 0) {
@@ -414,14 +460,20 @@ export function renderDeparturesPanel(stationName, departures) {
     const label = mins === 0 ? "à l'instant" : `il y a ${mins} min`;
     return `
       <li class="nearby-arrival-item ${i === 0 ? "is-latest" : ""}">
-        <span class="nearby-arrival-bike">🚲 ${d.bike_id}</span>
+        <span class="nearby-arrival-bike">🚲 ${escapeHtml(d.bike_id)}</span>
         <span class="nearby-arrival-ago">${label}</span>
-        <button class="watch-btn" onclick="window.app.watchBike('${d.bike_id}')">Suivre</button>
+        <button class="watch-btn" data-action="watch-bike" data-bike-id="${escapeHtml(d.bike_id)}">Suivre</button>
       </li>`;
   }).join("");
 
   div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
 }
+
+document.getElementById("departureResults")?.addEventListener("click", (e) => {
+  const el = e.target.closest('[data-action="watch-bike"]');
+  if (!el) return;
+  window.app.watchBike(el.dataset.bikeId);
+});
 
 // --- Watch status indicator ---
 
@@ -433,10 +485,16 @@ export function renderWatchStatus(bikeIds) {
   }
   el.innerHTML = bikeIds.map((id) => `
     <div class="watch-active">
-      ⏱ Suivi&nbsp;<b>${id}</b>
-      <button class="watch-stop" onclick="window.app.stopWatch('${id}')">✕</button>
+      ⏱ Suivi&nbsp;<b>${escapeHtml(id)}</b>
+      <button class="watch-stop" data-action="stop-watch" data-bike-id="${escapeHtml(id)}">✕</button>
     </div>`).join("");
 }
+
+document.getElementById("watchStatus")?.addEventListener("click", (e) => {
+  const el = e.target.closest('[data-action="stop-watch"]');
+  if (!el) return;
+  window.app.stopWatch(el.dataset.bikeId);
+});
 
 // --- Watch history (local, per-device) ---
 
@@ -448,7 +506,7 @@ export function renderWatchHistory(entries) {
     <div class="nearby-station-header">
       <span class="nearby-station-icon">📜</span>
       <span class="nearby-station-name">Vélos suivis récemment</span>
-      <button class="watch-stop" onclick="window.app.clearWatchHistory()" title="Vider l'historique">🗑</button>
+      <button class="watch-stop" data-action="clear-watch-history" title="Vider l'historique">🗑</button>
     </div>`;
 
   if (!entries || entries.length === 0) {
@@ -469,7 +527,7 @@ export function renderWatchHistory(entries) {
 
     return `
       <li class="nearby-arrival-item">
-        <span class="nearby-arrival-bike">🚲 ${e.bikeId}</span>
+        <span class="nearby-arrival-bike">🚲 ${escapeHtml(e.bikeId)}</span>
         <span class="nearby-arrival-time">${dep} → ${arr}</span>
         <span class="nearby-arrival-ago">${details}</span>
       </li>`;
@@ -477,6 +535,10 @@ export function renderWatchHistory(entries) {
 
   div.innerHTML = header + `<ul class="nearby-arrivals">${items}</ul>`;
 }
+
+document.getElementById("watchHistoryResults")?.addEventListener("click", (e) => {
+  if (e.target.closest('[data-action="clear-watch-history"]')) window.app.clearWatchHistory();
+});
 
 // --- Prévision météo (estimation de trajets) ---
 

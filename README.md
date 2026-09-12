@@ -46,6 +46,15 @@ cargo test
 
 Unit tests for the pure logic — trip validity, coordinate normalization, zone snapping, group detection, day-bounds math, and the VAPID key encoding — live alongside the code they test in `#[cfg(test)] mod tests` blocks. No test DB or network needed. CI runs this before every build; a failing test blocks deployment.
 
+### Frontend linting
+
+```bash
+npm ci
+npm run lint
+```
+
+ESLint (flat config, `eslint.config.js`) over `public/js/` and `public/sw.js` — no build step, no bundler, just static analysis (this is exactly what caught `heatmap.js`'s `loadData(today)` referencing an undefined variable). CI runs it whenever `public/**` changes; a failing lint blocks deployment the same way a failing `cargo test` does.
+
 ## Project Structure
 
 ```

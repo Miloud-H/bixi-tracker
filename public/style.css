@@ -396,6 +396,20 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
 #bikeResults a { color: var(--accent); text-decoration: none; }
 .time { font-weight: 600; color: var(--text-secondary); }
 
+/* ── Panneaux bike/group/stats : ex-styles inline ── */
+.panel-hint  { color: var(--text-muted); font-size: 11px; padding: 6px 0; }
+.panel-empty { color: var(--text-muted); padding: 8px 0; font-size: 12px; }
+.panel-meta  { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.trip-dist     { color: var(--text-muted); font-size: 10px; margin-left: 6px; }
+.trip-stations { color: var(--text-secondary); font-size: 11px; }
+.btn-voir { width: auto; padding: 2px 8px; margin-top: 4px; }
+.group-title { color: var(--accent-red); }
+.group-list  { margin-top: 6px; padding: 0; }
+.group-time-inline { font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+.btn-eye-float  { float: right; width: auto; padding: 0 6px; }
+.btn-exit-focus { width: 100%; margin-top: 6px; font-size: 11px; }
+.nearby-eye-link { color: var(--accent); text-decoration: none; font-size: 14px; }
+
 /* ── Nearby panel ── */
 #nearbyResults { font-size: 12px; }
 
@@ -531,7 +545,7 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   text-overflow: ellipsis;
 }
 .stat-bar-wrap { flex: 1; }
-.stat-bar { height: 3px; background: var(--accent); border-radius: 2px; opacity: 0.7; transition: width 0.4s; }
+.stat-bar { width: var(--w, 0%); height: 3px; background: var(--accent); border-radius: 2px; opacity: 0.7; transition: width 0.4s; }
 .stat-count { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 24px; text-align: right; }
 
 /* ── Barre de stats ── */
@@ -720,6 +734,10 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
 }
 
 .trip-arrow { font-size: 12px; pointer-events: none; }
+/* Contenu des divIcon de flèche — seul l'angle/la couleur varient par trajet,
+   le reste (taille, ombre) est statique et vit ici plutôt qu'en style inline. */
+.trip-arrow-icon  { font-size: 16px; text-shadow: 1px 1px 2px #fff; }
+.focus-arrow-icon { font-size: 22px; line-height: 1; filter: drop-shadow(0 0 3px #000a); color: #64b5f6; }
 .focus-tip {
   background: rgba(20, 24, 32, 0.85) !important;
   border: none !important;
@@ -742,6 +760,8 @@ button:hover { background: var(--bg-panel-hover); border-color: var(--border-str
   margin: 4px 0 0;
   font-size: 11px;
 }
+.popup-group-label { color: var(--accent-red); }
+.click-popup-list { padding: 10px; margin: 0; font-size: 11px; }
 
 .city-selector {
   display: flex;

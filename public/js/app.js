@@ -10,7 +10,7 @@ import {
   renderBikePanel, renderGroupPanel, renderNearbyPanel,
   renderDeparturesPanel, renderWatchStatus, renderWatchHistory,
   renderRidingForecast,
-  setPlayingState, TimelinePlayer,
+  TimelinePlayer,
 } from "./ui.js";
 import { setPendingWatch, clearPendingWatch, recordArrival, getHistory, clearHistory } from "./watchHistory.js";
 import { fetchRidingForecast } from "./weatherForecast.js";
@@ -146,6 +146,7 @@ class App {
     document.getElementById("btnNearby").addEventListener("click",     () => this.checkNearbyArrivals());
     document.getElementById("btnDepartures").addEventListener("click", () => this.checkNearbyDepartures());
     document.getElementById("btnWatchHistory")?.addEventListener("click", () => this.toggleWatchHistory());
+    document.getElementById("scClose")?.addEventListener("click", () => this.closeStationCard());
 
     document.getElementById("bikeSearch").addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.searchBike();
@@ -315,7 +316,7 @@ class App {
     this.activeSearch = query;
 
     const trips = this.allTrips.filter((t) => t.bike_id.toUpperCase() === query);
-    renderBikePanel(trips, this.stations, "window.app.focusTrip");
+    renderBikePanel(trips, this.stations);
 
     if (!this.tripsLayer) return;
     if (query === "") { resetLayerStyles(this.tripsLayer); return; }
@@ -352,7 +353,7 @@ class App {
     if (!groupId || !this.tripsLayer) return;
     highlightGroup(this.tripsLayer, groupId);
     const members = this.allTrips.filter((t) => t.group_id === groupId);
-    renderGroupPanel(groupId, members, this.stations, "window.app.focusTrip");
+    renderGroupPanel(groupId, members);
     showAlert(`Focus groupe #${groupId} — ${members.length} vélos`);
   }
 
@@ -429,7 +430,7 @@ class App {
           this.lastDepartures        = departures;
           this.lastDeparturesStation = nearest.name;
           this._renderDepartures();
-        } catch (e) {
+        } catch {
           this.lastDepartures = null;
           div.innerHTML = `<div class="nearby-empty">❌ Erreur réseau.</div>`;
         }
@@ -615,7 +616,7 @@ class App {
         } else {
           this.map.setView([nearest.lat, nearest.lon], 16);
         }
-        renderNearbyPanel(nearest.name, arrivals, "window.app.focusTrip");
+        renderNearbyPanel(nearest.name, arrivals);
       },
       (err) => {
         div.innerHTML = `<div class="nearby-empty">❌ GPS indisponible : ${err.message}</div>`;

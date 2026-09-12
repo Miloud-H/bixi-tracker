@@ -1,5 +1,8 @@
 # Rust build artifacts
 /target/
+
+# Node (ESLint dev tooling for public/js — no frontend build step, just linting)
+/node_modules/
 # Cargo.lock is tracked — this is a binary (src/main.rs), not a library,
 # so the lockfile should be committed for reproducible builds.
 

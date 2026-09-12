@@ -47,6 +47,19 @@ jobs:
         if: steps.filter.outputs.rust == 'true'
         run: cargo test --locked
 
+      - name: Install Node
+        if: steps.filter.outputs.frontend == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Lint frontend
+        if: steps.filter.outputs.frontend == 'true'
+        run: |
+          npm ci
+          npm run lint
+
       - name: Install musl tools
         if: steps.filter.outputs.rust == 'true'
         run: sudo apt-get install -y musl-tools

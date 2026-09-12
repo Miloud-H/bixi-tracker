@@ -69,11 +69,11 @@ function render(data, prevData) {
     const prevTotal = prevData.reduce((s, d) => s + d.count, 0);
     const prevAvg   = prevData.length ? Math.round(prevTotal / prevData.length) : 0;
     const delta     = prevAvg > 0 ? Math.round((avg - prevAvg) / prevAvg * 100) : null;
-    const sign      = delta > 0 ? '+' : '';
-    const color     = delta > 0 ? '#00e676' : delta < 0 ? '#ff5252' : '#9aa3b8';
+    const sign       = delta > 0 ? '+' : '';
+    const trendClass = delta > 0 ? 'delta-up' : delta < 0 ? 'delta-down' : 'delta-flat';
     document.getElementById('statAvg').innerHTML =
       `${avg.toLocaleString('fr-CA')} <span>/ jour</span>` +
-      (delta !== null ? ` <span style="color:${color};font-size:12px;">${sign}${delta}%</span>` : '');
+      (delta !== null ? ` <span class="delta-badge ${trendClass}">${sign}${delta}%</span>` : '');
   } else {
     document.getElementById('statAvg').innerHTML = `${avg.toLocaleString('fr-CA')} <span>/ jour</span>`;
   }

@@ -109,6 +109,12 @@ h1 span { color: #a78bfa; }
   font-variant-numeric: tabular-nums;
 }
 .stat-pill-value span { color: #a78bfa; font-size: 13px; font-weight: 400; }
+/* Badge de tendance (vs période précédente) — override le violet par défaut
+   des spans ci-dessus, d'où le double sélecteur pour battre sa spécificité. */
+.stat-pill-value .delta-badge { font-size: 12px; }
+.stat-pill-value .delta-up    { color: #00e676; }
+.stat-pill-value .delta-down  { color: #ff5252; }
+.stat-pill-value .delta-flat  { color: #9aa3b8; }
 
 /* ── Graphique ── */
 #chartWrap {

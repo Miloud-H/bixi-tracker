@@ -7,6 +7,7 @@ import {
 } from "./geo.js";
 import { formatTime } from "./trips.js";
 import { createTileSwitcher } from "./tiles.js";
+import { escapeHtml } from "./ui.js";
 
 // Leaflet is loaded globally via <script> tag in index.html
 const L = window.L;
@@ -24,6 +25,21 @@ export function initMap(theme = "light") {
   map.setTiles(theme);
 
   map.tripsRenderer = L.canvas({ padding: 0.5 }).addTo(map);
+
+  // Délégation pour le contenu des popups Leaflet : ils sont recréés à
+  // chaque ouverture (pas un conteneur stable auquel attacher un listener
+  // à l'avance), donc on écoute au niveau du conteneur de la carte, qui
+  // lui persiste, et on laisse le clic remonter jusqu'ici.
+  map.getContainer().addEventListener("click", (e) => {
+    const el = e.target.closest("[data-action]");
+    if (!el) return;
+    if (el.dataset.action === "search-bike") {
+      e.preventDefault();
+      window.app.searchBike(el.dataset.bikeId);
+    } else if (el.dataset.action === "highlight-group") {
+      window.app.highlightGroup(Number(el.dataset.groupId));
+    }
+  });
 
   return map;
 }
@@ -43,18 +59,18 @@ function buildTripPopup(trip, stations, allTrips) {
     : 0;
 
   const groupLabel = isGroup
-    ? `<br><b style="color:#e74c3c;">👥 Groupe de ${groupCount} vélos (ID: ${trip.group_id})</b><br>
-       <button class="highlightButton" onclick="window.app.highlightGroup(${trip.group_id})">
+    ? `<br><b class="popup-group-label">👥 Groupe de ${groupCount} vélos (ID: ${trip.group_id})</b><br>
+       <button class="highlightButton" data-action="highlight-group" data-group-id="${trip.group_id}">
          Surligner le groupe
        </button>`
     : "";
 
   return `
-    🚲 <b>ID: <a href="#" onclick="window.app.searchBike('${trip.bike_id}'); return false;">${trip.bike_id}</a></b>
+    🚲 <b>ID: <a href="#" data-action="search-bike" data-bike-id="${escapeHtml(trip.bike_id)}">${escapeHtml(trip.bike_id)}</a></b>
     ${groupLabel}<br>
     ⏱ ${formatTime(trip.start_time)} ➔ ${formatTime(trip.end_time)}<br>
-    📍 Dépt: ${startStation ? startStation.name : "Hors station"}<br>
-    📍 Arriv: ${endStation ? endStation.name : "Hors station"}<br>
+    📍 Dépt: ${startStation ? escapeHtml(startStation.name) : "Hors station"}<br>
+    📍 Arriv: ${endStation ? escapeHtml(endStation.name) : "Hors station"}<br>
     📏 Dist: ${Math.round(trip.distance)} m
   `;
 }
@@ -96,7 +112,7 @@ export function renderTrips(map, trips, stations) {
       const arrow = L.marker(mid, {
         icon: L.divIcon({
           className: "trip-arrow",
-          html: `<div style="transform:rotate(${angle}deg);color:${color};font-size:16px;text-shadow:1px 1px 2px #fff;">➤</div>`,
+          html: `<div class="trip-arrow-icon" style="transform:rotate(${angle}deg);color:${color};">➤</div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10],
         }),
@@ -181,7 +197,7 @@ export function focusTrip(map, sl1, sl2, el1, el2) {
   const arrow = L.marker(mid, {
     icon: L.divIcon({
       className: "",
-      html: `<div style="transform:rotate(${angle}deg);color:#64b5f6;font-size:22px;line-height:1;filter:drop-shadow(0 0 3px #000a);">➤</div>`,
+      html: `<div class="focus-arrow-icon" style="transform:rotate(${angle}deg);">➤</div>`,
       iconSize: [22, 22],
       iconAnchor: [11, 11],
     }),
@@ -218,9 +234,9 @@ export function bindClickPopup(map, getTrips, stations, onStationClick) {
       return;
     }
 
-    let html = `<b>${nearby.length} trajet(s) terminés ici :</b><ul style="padding:10px;margin:0;font-size:11px;">`;
+    let html = `<b>${nearby.length} trajet(s) terminés ici :</b><ul class="click-popup-list">`;
     nearby.forEach((t) => {
-      html += `<li>🚲 <a href="#" onclick="window.app.searchBike('${t.bike_id}')">${t.bike_id}</a> — ${formatTime(t.end_time)}</li>`;
+      html += `<li>🚲 <a href="#" data-action="search-bike" data-bike-id="${escapeHtml(t.bike_id)}">${escapeHtml(t.bike_id)}</a> — ${formatTime(t.end_time)}</li>`;
     });
     html += "</ul>";
     L.popup().setLatLng(e.latlng).setContent(html).openOn(map);
