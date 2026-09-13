@@ -459,7 +459,9 @@ class App {
     updateDistLabel(0);
     this.updateRangeSliderPct(this.distSlider);
     this.resetStyles();
-    this.stopWatch(); // "Tout réinitialiser" annule aussi les suivis actifs — resetStyles() seul ne le fait plus
+    // Ne touche pas aux suivis actifs — un suivi est une action délibérée,
+    // "Tout réinitialiser" ne concerne que la recherche/le filtre/la vue.
+    // Annulation individuelle déjà possible via le ✕ dans #watchStatus.
     const city = CITIES[this.activeCity];
     this.map.flyTo(city.center, city.zoom, { duration: 0.8 });
     this.render();
@@ -593,12 +595,11 @@ class App {
 
   // arrived: true quand appelé parce que le vélo suivi est réapparu dans le flux
   // (il ne doit pas revenir dans "Départs") — false pour une annulation manuelle
-  // (il redevient disponible pour être suivi).
+  // (il redevient disponible pour être suivi). bikeId toujours requis — annuler
+  // TOUS les suivis d'un coup n'est plus une action exposée dans l'UI (ça avait
+  // causé un vrai bug : un closePopup() incidental annulait un suivi qu'on
+  // venait juste de créer). Annulation individuelle via le ✕ de #watchStatus.
   stopWatch(bikeId, { arrived = false, arrLat, arrLon } = {}) {
-    if (bikeId === undefined) {
-      for (const id of [...this.watches.keys()]) this.stopWatch(id);
-      return;
-    }
 
     if (arrived) {
       // Fonctionne même si ce vélo n'a pas d'entrée dans this.watches (ex :
