@@ -1,5 +1,5 @@
 import { initMap, renderTrips, highlightGroup, resetLayerStyles, focusTrip, bindClickPopup, renderInFlight } from "./map.js";
-import { fetchTrips, fetchActive, filterActiveAt, filterByDistance, localToday } from "./trips.js";
+import { fetchTrips, fetchActive, filterActiveAt, filterByDistance, localToday, minutesToHHMM } from "./trips.js";
 import { findNearestStation, haversineDistance, CITIES } from "./geo.js";
 import {
   initTheme, toggleTheme,
@@ -50,6 +50,8 @@ class App {
 
     this.datePicker   = document.getElementById("datePicker");
     this.timeSlider   = document.getElementById("timeSlider");
+    this.timeLabel    = document.getElementById("timeLabel");
+    this.timeInput    = document.getElementById("timeInput");
     this.showAllCheck = document.getElementById("showAllTrips");
     this.showInFlightCheck = document.getElementById("showInFlight");
     this.distSlider   = document.getElementById("distSlider");
@@ -126,6 +128,35 @@ class App {
       this.updateRangeSliderPct(e.target);
       debouncedRender();
     });
+
+    // Viser une minute précise à la souris/au doigt sur le slider n'est pas
+    // pratique — cliquer l'heure affichée bascule vers le picker natif du
+    // navigateur (clavier ou molette selon l'OS) plutôt que d'ajouter un
+    // composant custom.
+    this.timeLabel.addEventListener("click", () => {
+      this.timeInput.value = minutesToHHMM(parseInt(this.timeSlider.value));
+      this.timeLabel.hidden = true;
+      this.timeInput.hidden = false;
+      this.timeInput.focus();
+    });
+    const commitTimeInput = () => {
+      if (this.timeInput.hidden) return; // déjà validé (change + blur se déclenchent tous les deux)
+      const [h, m] = this.timeInput.value.split(":").map(Number);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) {
+        this.timeSlider.value = Math.min(1439, h * 60 + m);
+        this.updateRangeSliderPct(this.timeSlider);
+        this.render();
+      }
+      this.timeInput.hidden = true;
+      this.timeLabel.hidden = false;
+    };
+    // Pas de gestion spéciale d'Échap : testé, le "keydown" d'un
+    // input[type=time] natif ne se comporte pas de façon fiable d'un
+    // navigateur à l'autre (Chromium peut le garder focus + visible malgré
+    // le hidden posé depuis le handler). blur/change suffisent — une saisie
+    // incomplète a une value vide, donc commitTimeInput() ne l'applique pas.
+    this.timeInput.addEventListener("change", commitTimeInput);
+    this.timeInput.addEventListener("blur", commitTimeInput);
     this.distSlider.addEventListener("input", (e) => {
       updateDistLabel(parseInt(this.distSlider.value));
       this.updateRangeSliderPct(e.target);
