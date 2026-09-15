@@ -1,21 +1,33 @@
 // Estimation légère du volume de trajets attendu selon la météo du jour/lendemain.
 //
-// Intercept calibré sur notre propre saison e-bike 2026 (Montréal,
-// avril-août, n=147) — c'est la bonne échelle pour ce qu'on affiche. Les
-// coefficients temp/précip/weekend, eux, viennent d'une régression multi-
+// Les coefficients temp/précip/weekend viennent d'une régression multi-
 // saisons sur les données ouvertes OFFICIELLES BIXI (2021-2025, toute la
 // flotte, n=1438 jours, R²=0.82 — voir analysis/weather_regression_multiseason.py)
-// convertie en effet RELATIF (%/unité, modèle log-linéaire) puis réappliquée
-// à notre intercept — la seule saison 2026 seule n'a pas assez de variation
-// météo pour séparer proprement météo/calendrier (voir garde-fou dans
-// project_weather_prediction en mémoire), mais 5 saisons le permettent.
-// Comparé à l'ancien modèle mono-saison : la température était déjà juste
-// (+10.9%/°C vs +11.3%/°C), mais la pluie (-5.8%/mm) et surtout le weekend
-// (-35.6%, et pas significatif une fois d'autres saisons ajoutées) étaient
-// nettement surestimés par la confusion météo/calendrier d'une saison seule.
+// convertie en effet RELATIF (%/unité, modèle log-linéaire) — la seule saison
+// 2026 n'a pas assez de variation météo pour séparer proprement météo/
+// calendrier (voir garde-fou dans project_weather_prediction en mémoire),
+// mais 5 saisons le permettent.
 //
-//   trajets = 4069 + 460.4·temp_moy − 97.4·précip_mm − 275.9·weekend
-const MODEL = { intercept: 4069.04, temp: 460.4, precip: -97.4, weekend: -275.9 };
+// L'intercept, lui, ne peut PAS venir de ce modèle multi-saisons (toute la
+// flotte, mauvaise échelle) ni d'une régression figée sur notre saison 2026 —
+// testé le 2026-09-15 : un intercept calibré sur avril-août (4069) sous-
+// estimait déjà nettement la réalité de septembre (moyenne des 20 derniers
+// jours ouvrés : ~13 700 trajets/j, contre ~10 000-10 700 prédits pour des
+// conditions comparables) — le système grossit tout au long de la saison,
+// une constante figée devient obsolète. Recalibré ici en "dé-météorisant"
+// les trajets récents avec les coefficients ci-dessus puis en moyennant
+// (stable autour de ~4500 sur des fenêtres de 14 à 45 jours au moment du
+// calcul) plutôt qu'en réajustant température/précip/weekend sur une courte
+// fenêtre récente (testé aussi : coefficient température devient instable,
+// t~1-2 au lieu de t~75 sur le modèle multi-saisons — pas assez de variation
+// météo sur quelques semaines).
+//
+// /!\ Cet intercept va se re-périmer avec la croissance du système — à
+// rafraîchir périodiquement (ex. à chaque nouveau dump de la DB de prod, voir
+// project_data_report en mémoire), pas un fix définitif.
+//
+//   trajets = 4500 + 460.4·temp_moy − 97.4·précip_mm − 275.9·weekend
+const MODEL = { intercept: 4500, temp: 460.4, precip: -97.4, weekend: -275.9 };
 
 // Coordonnées Montréal — la très grande majorité du volume du système (voir
 // project_weather_prediction en mémoire : ~10 400 trajets/j vs ~73 à Sherbrooke),
