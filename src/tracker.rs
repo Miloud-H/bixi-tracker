@@ -39,6 +39,13 @@ const MAX_POSITION_AGE_SECS: i64 = 300;
 // still-active watch — only ones whose bike never came back.
 const PUSH_SUBSCRIPTION_MAX_AGE_SECS: i64 = 3 * 60 * 60;
 
+// A bike still "in flight" (absent from the feed) past this long is treated
+// as lost, not just late — same threshold used to (a) drop it live in
+// `process_poll` and (b) decide, on restart, whether an entry restored from
+// `in_flight.json` is still worth resuming instead of stale disk state from
+// a bike that came back (or was abandoned) while the server was down.
+const IN_FLIGHT_TIMEOUT_MINS: i64 = 120;
+
 fn load_positions(pool: &DbPool) -> HashMap<String, BikeState> {
     let conn = match pool.get() {
         Ok(c) => c,
@@ -97,7 +104,7 @@ fn load_in_flight() -> HashMap<String, InFlightEntry> {
         Err(e) => { eprintln!("Failed to parse in_flight.json (format change?): {e}"); return flight; }
     };
 
-    let cutoff = Utc::now() - chrono::Duration::minutes(120);
+    let cutoff = Utc::now() - chrono::Duration::minutes(IN_FLIGHT_TIMEOUT_MINS);
     for (bike_id, (ts_str, lat, lon)) in map {
         if let Ok(ts) = DateTime::parse_from_rfc3339(&ts_str) {
             let ts_utc = ts.with_timezone(&Utc);
@@ -323,7 +330,7 @@ fn process_poll(
     // Without this, returned bikes linger until timeout inflating the count.
     flight.retain(|id, (start, _, _)| {
         disappeared_at.contains_key(id)
-            && (now - *start).num_minutes() < 120
+            && (now - *start).num_minutes() < IN_FLIGHT_TIMEOUT_MINS
     });
 
     PollOutcome { positions, disappeared_at, flight, detected_trips: detected, just_returned }
