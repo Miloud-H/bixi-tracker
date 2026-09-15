@@ -59,6 +59,7 @@ async fn main() {
     };
 
     let app = Router::new()
+        .route("/api/health",  get(routes::get_health))
         .route("/api/trips",   get(routes::get_trips))
         .route("/api/active",  get(routes::get_active))
         .route("/api/flows",   get(routes::get_flows))
@@ -82,5 +83,42 @@ async fn main() {
     let listener = TcpListener::bind(addr).await.unwrap();
     println!("Server running on http://{addr}");
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+/// Resolves on Ctrl+C (dev) or SIGTERM (`systemctl stop`/restart in prod).
+/// Paired with `.with_graceful_shutdown` above: axum stops accepting new
+/// connections but lets in-flight requests finish instead of dropping them
+/// mid-response — otherwise a deploy restart could cut off, say, a client
+/// mid-`/api/history` fetch. Doesn't touch the tracker's background polling
+/// loop (`tracker::run`, spawned in `main`) — that task simply ends when the
+/// process exits, same as today; it periodically persists `in_flight.json`
+/// on its own so an abrupt stop there was already an accepted, pre-existing
+/// tradeoff, not something this change is meant to fix.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => {},
+        () = terminate => {},
+    }
+
+    println!("Shutdown signal received — draining in-flight requests...");
 }

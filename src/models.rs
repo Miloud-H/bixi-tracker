@@ -96,6 +96,13 @@ pub struct BikeStatusQuery {
     pub bike_id: String,
 }
 
+// --- Health ---
+
+#[derive(Serialize)]
+pub struct HealthResponse {
+    pub status: &'static str,
+}
+
 // --- Push subscriptions ---
 
 #[derive(Serialize)]

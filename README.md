@@ -109,6 +109,10 @@ All four pages are ES modules and share `ui.js` (theme), `tiles.js` (the three m
 
 ## API
 
+### `GET /api/health`
+
+Liveness/readiness probe — returns `{"status": "ok"}` (200) if the process is up **and** can actually get a DB connection from the pool, 500 otherwise. Meant for uptime monitors and deploy tooling, not end users.
+
 ### `GET /api/trips?date=YYYY-MM-DD`
 
 Trips for a given date (Montréal local time). `group_id` is non-null when multiple bikes shared the same origin/destination within a 5-minute window.

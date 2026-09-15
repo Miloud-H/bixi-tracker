@@ -9,7 +9,7 @@ use chrono_tz::America::Montreal;
 use crate::error::{AppError, ResultExt};
 use crate::models::{
     ActiveStats, BikeLeaderboardEntry, BikeStatus, BikeStatusQuery, DayStats, DepartingBike,
-    FleetStats, FleetStatsQuery, Flow, FlowQuery, HeatPoint, HeatQuery, HistoryQuery,
+    FleetStats, FleetStatsQuery, Flow, FlowQuery, HealthResponse, HeatPoint, HeatQuery, HistoryQuery,
     NearbyQuery, OverdueBike, SubscribeRequest, Trip, TripQuery, UnsubscribeRequest,
     VapidKeyResponse, Zone, ZoneQuery,
 };
@@ -331,6 +331,19 @@ pub async fn get_bike_status(
     Json(BikeStatus { in_flight })
 }
 
+// --- Health ---
+
+/// Liveness/readiness probe for uptime monitoring and deploy tooling (e.g. a
+/// systemd health check, or an external uptime ping). Actually asks the DB
+/// pool for a connection rather than just returning 200 unconditionally — a
+/// process that's up but can't reach its DB isn't "healthy" in any useful
+/// sense to a caller deciding whether to route traffic here or restart it.
+/// No query beyond that: cheap enough to poll every few seconds.
+pub async fn get_health(State(state): State<AppState>) -> Result<Json<HealthResponse>, AppError> {
+    state.pool.get().ctx("get_health: pool")?;
+    Ok(Json(HealthResponse { status: "ok" }))
+}
+
 // --- Push notifications ---
 
 pub async fn get_vapid_key(State(state): State<AppState>) -> Json<VapidKeyResponse> {
@@ -639,6 +652,13 @@ mod tests {
             heat_cache:       crate::cache::ApiCache::new(300),
             vapid_public_key: String::new(),
         }
+    }
+
+    #[tokio::test]
+    async fn get_health_reports_ok_when_the_db_pool_is_reachable() {
+        let state = memory_state();
+        let Json(body) = get_health(State(state)).await.unwrap();
+        assert_eq!(body.status, "ok");
     }
 
     /// Regression test for the SQL injection fixed alongside this test:
