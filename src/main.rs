@@ -21,7 +21,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 use cache::ApiCache;
-use models::{Flow, HeatPoint, InFlightBikes};
+use models::{Flow, HeatPoint, InFlightBikes, ZoneImbalance};
 use push::load_or_create_vapid_key;
 
 #[derive(Clone)]
@@ -30,6 +30,7 @@ pub struct AppState {
     pub in_flight:        InFlightBikes,
     pub flow_cache:       Arc<ApiCache<Vec<Flow>>>,
     pub heat_cache:       Arc<ApiCache<Vec<HeatPoint>>>,
+    pub imbalance_cache:  Arc<ApiCache<Vec<ZoneImbalance>>>,
     pub vapid_public_key: String,
 }
 
@@ -55,6 +56,10 @@ async fn main() {
         in_flight,
         flow_cache: ApiCache::new(300),
         heat_cache: ApiCache::new(300),
+        // TTL bien plus long que flow/heat : balaie TOUTE la table trips (pas
+        // un jour), coûteux, et le "pouls navetteur" qu'on y mesure est un
+        // pattern structurel qui ne bouge pas d'une minute à l'autre.
+        imbalance_cache: ApiCache::new(3600),
         vapid_public_key,
     };
 
@@ -65,6 +70,7 @@ async fn main() {
         .route("/api/flows",   get(routes::get_flows))
         .route("/api/heatmap", get(routes::get_heatmap))
         .route("/api/zones",              get(routes::get_zones))
+        .route("/api/zones/imbalance",    get(routes::get_zone_imbalance))
         .route("/api/history",            get(routes::get_history))
         .route("/api/departures/nearby",  get(routes::get_departures_nearby))
         .route("/api/bikes/in-flight",    get(routes::get_in_flight_bikes))

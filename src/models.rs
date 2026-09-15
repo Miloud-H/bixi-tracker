@@ -182,6 +182,23 @@ pub struct FlowQuery {
     pub city: Option<String>,
 }
 
+/// Déséquilibre net matin (6h-10h) vs soir (15h-19h) d'une zone Atlas, agrégé
+/// sur TOUT l'historique disponible (pas un seul jour comme `Flow`) — révèle
+/// le "pouls navetteur" du réseau : les zones résidentielles perdent des
+/// vélos le matin et en regagnent le soir, l'inverse pour les pôles
+/// d'emploi/transit. Voir `routes::get_zone_imbalance`.
+#[derive(Serialize, Clone)]
+pub struct ZoneImbalance {
+    pub zone:   String,
+    pub am_net: i64,
+    pub pm_net: i64,
+}
+
+#[derive(Deserialize)]
+pub struct ZoneImbalanceQuery {
+    pub city: Option<String>,
+}
+
 // --- Historique ---
 
 #[derive(Serialize, Clone)]

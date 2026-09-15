@@ -11,7 +11,7 @@ use crate::models::{
     ActiveStats, BikeLeaderboardEntry, BikeStatus, BikeStatusQuery, DayStats, DepartingBike,
     FleetStats, FleetStatsQuery, Flow, FlowQuery, HealthResponse, HeatPoint, HeatQuery, HistoryQuery,
     NearbyQuery, OverdueBike, SubscribeRequest, Trip, TripQuery, UnsubscribeRequest,
-    VapidKeyResponse, Zone, ZoneQuery,
+    VapidKeyResponse, Zone, ZoneImbalance, ZoneImbalanceQuery, ZoneQuery,
 };
 use crate::AppState;
 
@@ -235,6 +235,82 @@ pub async fn get_flows(
 
     state.flow_cache.set(cache_key, flows.clone());
     Ok(Json(flows))
+}
+
+// --- Déséquilibre net matin/soir par zone (agrégé, tout l'historique) ---
+//
+// Contrairement à `get_flows` (un seul jour), balaie TOUTE la table trips —
+// coûteux (~1,7M lignes à ce jour) mais appelé rarement (une visite Atlas,
+// pas un polling), donc mis en cache avec le même mécanisme que flows/heat.
+// Classe chaque trajet par l'heure de SON DÉPART (pas l'arrivée) pour les
+// deux bouts — simplification déjà validée empiriquement en Python
+// (analysis/) : les trajets durent ~13min en moyenne, l'heure d'arrivée
+// diffère rarement de celle du départ.
+pub async fn get_zone_imbalance(
+    State(state): State<AppState>,
+    Query(params): Query<ZoneImbalanceQuery>,
+) -> Result<Json<Vec<ZoneImbalance>>, AppError> {
+    let city = params.city.as_deref().unwrap_or("montreal").to_string();
+
+    if let Some(cached) = state.imbalance_cache.get(&city) {
+        return Ok(Json(cached));
+    }
+
+    let conn = state.pool.get().ctx("get_zone_imbalance: pool")?;
+
+    // Filtre les heures hors AM/PM directement en SQL — évite de faire les 2
+    // appels à snap_nearest_for_city (le vrai coût, ~1,7M lignes) pour les
+    // ~2/3 des trajets qui seraient de toute façon ignorés plus bas. Mesuré :
+    // ramène le premier appel (non caché) de ~5s à ~3,5s en release — reste
+    // notable mais acceptable vu le cache d'1h (state.imbalance_cache) qui
+    // absorbe tous les appels suivants en ~30ms.
+    let mut stmt = conn.prepare(
+        "SELECT start_lat, start_lon, end_lat, end_lon, hour FROM (
+            SELECT start_lat, start_lon, end_lat, end_lon,
+                   CAST(strftime('%H', datetime(start_time, '-4 hours')) AS INTEGER) as hour
+            FROM trips
+         ) WHERE hour BETWEEN 6 AND 9 OR hour BETWEEN 15 AND 18",
+    ).ctx("get_zone_imbalance: prepare")?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, f64>(0)?, row.get::<_, f64>(1)?,
+            row.get::<_, f64>(2)?, row.get::<_, f64>(3)?,
+            row.get::<_, i64>(4)?,
+        ))
+    }).ctx("get_zone_imbalance: query")?;
+
+    let mut net: HashMap<&'static str, (i64, i64)> = HashMap::new(); // zone -> (am_net, pm_net)
+
+    for row in rows.filter_map(|r| r.ok()) {
+        let (start_lat, start_lon, end_lat, end_lon, hour) = row;
+        let trip_city = if start_lon < -72.5 { "montreal" } else { "sherbrooke" };
+        if trip_city != city { continue; }
+
+        let dep = crate::zones::snap_nearest_for_city(start_lat, start_lon, &city);
+        let arr = crate::zones::snap_nearest_for_city(end_lat, end_lon, &city);
+
+        let is_am = (6..10).contains(&hour);
+        let is_pm = (15..19).contains(&hour);
+        if !is_am && !is_pm { continue; }
+
+        if let Some(z) = dep {
+            let entry = net.entry(z).or_insert((0, 0));
+            if is_am { entry.0 -= 1; } else { entry.1 -= 1; }
+        }
+        if let Some(z) = arr {
+            let entry = net.entry(z).or_insert((0, 0));
+            if is_am { entry.0 += 1; } else { entry.1 += 1; }
+        }
+    }
+
+    let imbalance: Vec<ZoneImbalance> = net
+        .into_iter()
+        .map(|(zone, (am_net, pm_net))| ZoneImbalance { zone: zone.to_string(), am_net, pm_net })
+        .collect();
+
+    state.imbalance_cache.set(city, imbalance.clone());
+    Ok(Json(imbalance))
 }
 
 // --- Départs récents à proximité ---
@@ -650,6 +726,7 @@ mod tests {
             in_flight:        std::sync::Arc::new(std::sync::RwLock::new(HashMap::new())),
             flow_cache:       crate::cache::ApiCache::new(300),
             heat_cache:       crate::cache::ApiCache::new(300),
+            imbalance_cache:  crate::cache::ApiCache::new(3600),
             vapid_public_key: String::new(),
         }
     }

@@ -68,6 +68,7 @@ body { background: #0d1117; color: var(--text-primary); font-family: 'Segoe UI',
 
 .panel-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   margin-top: 10px;

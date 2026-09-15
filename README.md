@@ -151,6 +151,10 @@ Daily trip counts. Use `from`/`to` for an explicit date range (used by period co
 
 Named zone definitions (lat/lon) used by the Atlas.
 
+### `GET /api/zones/imbalance[?city=montreal|sherbrooke]`
+
+Net arrivals-minus-departures per zone, morning (6h-10h) vs evening (15h-19h), aggregated over the **entire** trips table (not one day — the Atlas's flows endpoint stays per-day, this is the "all-time commuter pulse" companion). Residential zones show up as net exporters in the morning and importers in the evening; transit/education hubs the reverse. Expensive (scans the whole table), so it's cached for 1h server-side — first request after expiry takes a few seconds, subsequent ones are instant.
+
 ### `GET /api/departures/nearby?lat=X&lon=Y`
 
 Bikes currently in transit that departed within 120 m of the given coordinates, sorted by elapsed time.

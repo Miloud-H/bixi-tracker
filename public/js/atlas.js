@@ -46,6 +46,13 @@ let playing = false;
 let playInterval = null;
 let markers = {};
 
+// "Pouls navetteur" : déséquilibre net matin/soir par zone, agrégé sur tout
+// l'historique (pas un jour en particulier comme le reste de la page) —
+// voir GET /api/zones/imbalance. Caché par ville pour éviter un refetch au
+// simple aller-retour entre les deux modes.
+let imbalanceMode = false;
+const imbalanceCache = {}; // city -> [{zone, am_net, pm_net}, ...]
+
 function buildMarkers() {
   Object.values(markers).forEach(m => map.removeLayer(m));
   markers = {};
@@ -69,6 +76,58 @@ function buildMarkers() {
 
     markers[name] = m;
   }
+}
+
+async function loadImbalance() {
+  if (imbalanceCache[activeCity]) return imbalanceCache[activeCity];
+  document.getElementById('loader').style.display = 'flex';
+  try {
+    const res = await fetch(`/api/zones/imbalance?city=${activeCity}`);
+    imbalanceCache[activeCity] = await res.json();
+  } catch (e) {
+    console.error('Failed to load zone imbalance', e);
+    imbalanceCache[activeCity] = [];
+  }
+  document.getElementById('loader').style.display = 'none';
+  return imbalanceCache[activeCity];
+}
+
+// Rouge = perd des vélos le matin (zones résidentielles) ; bleu = en gagne
+// (pôles d'emploi/transit). Rayon = amplitude du déséquilibre, pas le
+// volume brut — une zone à am_net≈0 est simplement équilibrée, pas creuse.
+function renderImbalance() {
+  activeLines.forEach(l => map.removeLayer(l));
+  activeLines = [];
+
+  const data = imbalanceCache[activeCity] || [];
+  const byZone = Object.fromEntries(data.map(r => [r.zone, r]));
+  const maxAbs = Math.max(1, ...data.map(r => Math.abs(r.am_net)));
+
+  for (const [name, marker] of Object.entries(markers)) {
+    const r = byZone[name];
+    const amNet = r ? r.am_net : 0;
+    const t = Math.abs(amNet) / maxAbs; // 0..1
+    const color = amNet === 0 ? '#888' : amNet < 0 ? '#ff5252' : '#00d2ff';
+
+    marker.setRadius(4 + Math.sqrt(t) * 16);
+    marker.setStyle({
+      fillColor:   color,
+      fillOpacity: r ? 0.25 + t * 0.6 : 0.1,
+      color:       '#fff',
+      weight:      r ? 1 : 0,
+    });
+    if (r) marker.bringToFront();
+
+    marker.setTooltipContent(
+      r
+        ? `<b>${zoneLabel(name)}</b><br>Matin (6h-10h) : ${amNet > 0 ? '+' : ''}${amNet}<br>Soir (15h-19h) : ${r.pm_net > 0 ? '+' : ''}${r.pm_net}`
+        : zoneLabel(name)
+    );
+  }
+
+  document.getElementById('focusInfo').style.display = 'none';
+  document.getElementById('statsDisplay').innerHTML =
+    `Déséquilibre net matin/soir · <b>${data.length}</b> zones · tout l'historique disponible`;
 }
 
 map.on('click', () => {
@@ -108,6 +167,12 @@ function currentHour() {
 }
 
 function render(hour) {
+  if (imbalanceMode) { renderImbalance(); return; }
+
+  for (const [name, marker] of Object.entries(markers)) {
+    marker.setTooltipContent(zoneLabel(name));
+  }
+
   activeLines.forEach(l => map.removeLayer(l));
   activeLines = [];
 
@@ -231,7 +296,7 @@ document.getElementById('legendToggle').addEventListener('click', () => {
 });
 
 document.querySelectorAll('[data-city]').forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
     document.querySelectorAll('[data-city]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeCity = btn.dataset.city;
@@ -240,8 +305,28 @@ document.querySelectorAll('[data-city]').forEach(btn => {
     buildMarkers();
     const cfg = CITY_CONFIG[activeCity];
     map.flyTo(cfg.center, cfg.zoom, { duration: 0.8 });
-    loadFlows();
+    if (imbalanceMode) { await loadImbalance(); renderImbalance(); }
+    else loadFlows();
   });
+});
+
+// "Pouls navetteur" désactive les contrôles par jour/heure (sans objet ici —
+// la vue agrège tout l'historique) plutôt que de laisser des sliders morts.
+document.getElementById('btnImbalance').addEventListener('click', async () => {
+  imbalanceMode = !imbalanceMode;
+  const btn = document.getElementById('btnImbalance');
+  btn.classList.toggle('active', imbalanceMode);
+  document.querySelector('.panel-time').style.display = imbalanceMode ? 'none' : '';
+  document.getElementById('hourSlider').style.display  = imbalanceMode ? 'none' : '';
+  document.getElementById('datePicker').style.display  = imbalanceMode ? 'none' : '';
+  document.getElementById('btnPlay').style.display     = imbalanceMode ? 'none' : '';
+
+  if (imbalanceMode) {
+    await loadImbalance();
+    renderImbalance();
+  } else {
+    render(currentHour());
+  }
 });
 
 buildMarkers();
