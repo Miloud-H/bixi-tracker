@@ -3,33 +3,46 @@ import assert from "node:assert/strict";
 
 import { predictTrips, describe as describeDay } from "../public/js/weatherForecast.js";
 
+// dow suit Date.getDay() : 0=dimanche ... 6=samedi.
 describe("predictTrips", () => {
   test("never predicts a negative trip count on a terrible-weather day", () => {
-    const trips = predictTrips(-20, 50, false);
+    const trips = predictTrips(-20, 50, 1);
     assert.ok(trips >= 0);
   });
 
   test("rounds to the nearest 50", () => {
-    const trips = predictTrips(20, 0, false);
+    const trips = predictTrips(20, 0, 1);
     assert.equal(trips % 50, 0);
   });
 
   test("a warmer day predicts more trips, all else equal", () => {
-    const cold = predictTrips(5, 0, false);
-    const warm = predictTrips(25, 0, false);
+    const cold = predictTrips(5, 0, 1);
+    const warm = predictTrips(25, 0, 1);
     assert.ok(warm > cold, `expected warm (${warm}) > cold (${cold})`);
   });
 
   test("rain predicts fewer trips, all else equal", () => {
-    const dry = predictTrips(20, 0, false);
-    const rainy = predictTrips(20, 20, false);
+    const dry = predictTrips(20, 0, 1);
+    const rainy = predictTrips(20, 20, 1);
     assert.ok(rainy < dry, `expected rainy (${rainy}) < dry (${dry})`);
   });
 
-  test("a weekend predicts fewer trips than a weekday, all else equal", () => {
-    const weekday = predictTrips(20, 0, false);
-    const weekend = predictTrips(20, 0, true);
-    assert.ok(weekend < weekday, `expected weekend (${weekend}) < weekday (${weekday})`);
+  test("Sunday predicts fewer trips than a midweek day, all else equal", () => {
+    const wednesday = predictTrips(20, 0, 3);
+    const sunday = predictTrips(20, 0, 0);
+    assert.ok(sunday < wednesday, `expected sunday (${sunday}) < wednesday (${wednesday})`);
+  });
+
+  // Trouvaille du 2026-09-15 (voir analysis/weather_regression_multiseason.py) :
+  // le vendredi est le jour le plus achalandé de la semaine, pas un jour de
+  // semaine "normal" — un simple flag weekend/semaine ratait cette forme.
+  test("Friday predicts more trips than any other day, all else equal", () => {
+    const friday = predictTrips(20, 0, 5);
+    for (let dow = 0; dow <= 6; dow++) {
+      if (dow === 5) continue;
+      const other = predictTrips(20, 0, dow);
+      assert.ok(friday >= other, `expected friday (${friday}) >= dow ${dow} (${other})`);
+    }
   });
 });
 
