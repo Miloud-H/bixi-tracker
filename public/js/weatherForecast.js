@@ -1,14 +1,21 @@
 // Estimation légère du volume de trajets attendu selon la météo du jour/lendemain.
 //
-// Coefficients issus d'une régression OLS entraînée sur une seule saison de
-// données (Montréal, avril-août 2026, n=147, R²=0.78) — voir
-// analysis/weather_regression.py pour la méthode complète et les mises en
-// garde (une seule saison de données : les coefficients sont provisoires,
-// à re-calibrer une fois 2-3 saisons disponibles). Purement indicatif, pas
-// un vrai modèle prédictif calibré.
+// Intercept calibré sur notre propre saison e-bike 2026 (Montréal,
+// avril-août, n=147) — c'est la bonne échelle pour ce qu'on affiche. Les
+// coefficients temp/précip/weekend, eux, viennent d'une régression multi-
+// saisons sur les données ouvertes OFFICIELLES BIXI (2021-2025, toute la
+// flotte, n=1438 jours, R²=0.82 — voir analysis/weather_regression_multiseason.py)
+// convertie en effet RELATIF (%/unité, modèle log-linéaire) puis réappliquée
+// à notre intercept — la seule saison 2026 seule n'a pas assez de variation
+// météo pour séparer proprement météo/calendrier (voir garde-fou dans
+// project_weather_prediction en mémoire), mais 5 saisons le permettent.
+// Comparé à l'ancien modèle mono-saison : la température était déjà juste
+// (+10.9%/°C vs +11.3%/°C), mais la pluie (-5.8%/mm) et surtout le weekend
+// (-35.6%, et pas significatif une fois d'autres saisons ajoutées) étaient
+// nettement surestimés par la confusion météo/calendrier d'une saison seule.
 //
-//   trajets = 4069 + 444.62·temp_moy − 234.77·précip_mm − 1449.13·weekend
-const MODEL = { intercept: 4069.04, temp: 444.62, precip: -234.77, weekend: -1449.13 };
+//   trajets = 4069 + 460.4·temp_moy − 97.4·précip_mm − 275.9·weekend
+const MODEL = { intercept: 4069.04, temp: 460.4, precip: -97.4, weekend: -275.9 };
 
 // Coordonnées Montréal — la très grande majorité du volume du système (voir
 // project_weather_prediction en mémoire : ~10 400 trajets/j vs ~73 à Sherbrooke),
