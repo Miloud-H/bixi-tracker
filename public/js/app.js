@@ -403,11 +403,11 @@ class App {
   }
 
   // Purement visuel (styles de trajet, panneaux de recherche/départs) — ne
-  // touche PAS aux suivis actifs. Appelé aussi bien par reset() (bouton
-  // "Tout réinitialiser", où annuler tous les suivis a du sens) que par le
+  // touche PAS aux suivis actifs, jamais. Appelé aussi bien par reset()
+  // (bouton "Tout réinitialiser" — recherche/filtre/vue seulement, un suivi
+  // est une action délibérée que reset() ne doit pas défaire) que par le
   // listener "popupclose" de la carte (n'importe quelle popup qui se ferme,
-  // y compris via map.closePopup() juste après un clic "Suivre" — annuler
-  // tous les suivis à CE moment-là serait un vrai bug, pas juste hors-sujet).
+  // y compris via map.closePopup() juste après un clic "Suivre").
   resetStyles() {
     this.activeSearch = "";
     resetLayerStyles(this.tripsLayer);
