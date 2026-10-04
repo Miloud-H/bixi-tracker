@@ -21,16 +21,25 @@
 // saisons ET notre saison seule donnent la même forme générale).
 //
 // L'intercept (lundi, 0°C, sec) est recalibré en "dé-météorisant" les
-// trajets récents avec temp/précip/dow ci-dessus puis en moyennant — stable
-// autour de ~3450 sur des fenêtres de 14 à 45 jours au moment du calcul.
-// Une régression figée sur avril-août (l'ancienne approche) sous-estimait
-// nettement septembre : le système grossit tout au long de la saison.
+// trajets récents avec temp/précip/dow ci-dessus puis en moyennant.
+//
+// Mise à jour 2026-10-04 : contrairement au calcul du 2026-09-15 (stable
+// ~3450 sur toutes les fenêtres 14-45j), cette fois l'intercept dé-météorisé
+// AUGMENTE nettement quand la fenêtre se resserre (3769 à 60j → 5158 à 21j →
+// 5008 à 14j) — le système continue de grossir. La semaine du championnat du
+// monde de cyclisme UCI (19-27 sept) a été explicitement EXCLUE de ce calcul
+// (moyenne +24 à +33% au-dessus des semaines adjacentes ce jour-là, effet
+// modéré et réparti sur toute la ville plutôt qu'un pic hyper-local comme
+// Osheaga — voir project_weather_prediction en mémoire) pour ne pas figer un
+// événement ponctuel dans la constante. Nouvelle valeur : moyenne des
+// fenêtres 14j/21j (~5100), plus représentative de l'usage actuel que les
+// fenêtres plus longues qui sous-pèsent la croissance récente.
 //
 // /!\ Cet intercept va se re-périmer avec la croissance du système — à
 // rafraîchir périodiquement (ex. à chaque nouveau dump de la DB de prod, voir
 // project_data_report en mémoire), pas un fix définitif.
 const MODEL = {
-  intercept: 3450,
+  intercept: 5100,
   temp: 460.4,
   precip: -97.4,
   // dim,   lun, mar,    mer,    jeu,    ven,    sam
